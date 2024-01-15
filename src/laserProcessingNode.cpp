@@ -39,10 +39,8 @@ ros::Publisher pubLaserCloudFiltered;
 
 void velodyneHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 {
-    mutex_lock.lock();
+    std::lock_guard<std::mutex> lock(mutex_lock);
     pointCloudBuf.push(laserCloudMsg);
-    mutex_lock.unlock();
-   
 }
 
 double total_time =0;
@@ -52,18 +50,20 @@ void laser_processing(){
     while(1){
         if(!pointCloudBuf.empty()){
             //read data
-            mutex_lock.lock();
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_in(new pcl::PointCloud<pcl::PointXYZI>());
-            pcl::fromROSMsg(*pointCloudBuf.front(), *pointcloud_in);
-            ros::Time pointcloud_time = (pointCloudBuf.front())->header.stamp;
-            pointCloudBuf.pop();
-            mutex_lock.unlock();
-
+            ros::Time pointcloud_time;
+            {
+                std::lock_guard<std::mutex> lock(mutex_lock);  
+                pcl::fromROSMsg(*pointCloudBuf.front(), *pointcloud_in);
+                pointcloud_time = (pointCloudBuf.front())->header.stamp;
+                pointCloudBuf.pop();
+            }
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_edge(new pcl::PointCloud<pcl::PointXYZI>());          
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_surf(new pcl::PointCloud<pcl::PointXYZI>());
 
             std::chrono::time_point<std::chrono::system_clock> start, end;
             start = std::chrono::system_clock::now();
+            // 调用laserProcessingClass::featureExtraction处理点云特征
             laserProcessing.featureExtraction(pointcloud_in,pointcloud_edge,pointcloud_surf);
             end = std::chrono::system_clock::now();
             std::chrono::duration<float> elapsed_seconds = end - start;
@@ -87,20 +87,26 @@ void laser_processing(){
             edgePointsMsg.header.frame_id = "base_link";
             pubEdgePoints.publish(edgePointsMsg);
 
-
             sensor_msgs::PointCloud2 surfPointsMsg;
             pcl::toROSMsg(*pointcloud_surf, surfPointsMsg);
             surfPointsMsg.header.stamp = pointcloud_time;
             surfPointsMsg.header.frame_id = "base_link";
             pubSurfPoints.publish(surfPointsMsg);
-
         }
         //sleep 2 ms every time
         std::chrono::milliseconds dura(2);
         std::this_thread::sleep_for(dura);
     }
 }
-
+/*
+1. 初始化laserProcessingClass（从参数服务器读取数据）
+2. subLaserCloud订阅rosbag发布的velodyne_points话题，在callback中将点云msg加入队列
+3. 绑定要发布的话题：velodyne_points_filtered, laser_cloud_edge, laser_cloud_surf
+4. 创建线程，laser_processing()处理原始点云数据
+    1.不断从队列中弹出点云
+    2.调用laserProcessingClass::featureExtraction处理点云，得到edge和surf特征
+    3.发布点云话题（filtered, edge, surf）
+*/
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "main");
@@ -124,16 +130,19 @@ int main(int argc, char **argv)
     lidar_param.setMaxDistance(max_dis);
     lidar_param.setMinDistance(min_dis);
 
+    // 初始化laserProcessingClass
     laserProcessing.init(lidar_param);
-
+    // 订阅testbag里的topic: velodyne_points
     ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>("/velodyne_points", 100, velodyneHandler);
 
+    // filtered = egde + surf
     pubLaserCloudFiltered = nh.advertise<sensor_msgs::PointCloud2>("/velodyne_points_filtered", 100);
-
+    // edge feature
     pubEdgePoints = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_edge", 100);
-
+    // surf feature
     pubSurfPoints = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surf", 100); 
 
+    // 创建线程，调用laser_processing()方法
     std::thread laser_processing_process{laser_processing};
 
     ros::spin();

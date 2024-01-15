@@ -35,15 +35,17 @@ lidar::Lidar lidar_param;
 ros::Publisher pubLaserOdometry;
 void velodyneSurfHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 {
-    mutex_lock.lock();
+    std::lock_guard<std::mutex> lock(mutex_lock);
+    // mutex_lock.lock();
     pointCloudSurfBuf.push(laserCloudMsg);
-    mutex_lock.unlock();
+    // mutex_lock.unlock();
 }
 void velodyneEdgeHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 {
-    mutex_lock.lock();
+    std::lock_guard<std::mutex> lock(mutex_lock);
+    // mutex_lock.lock();
     pointCloudEdgeBuf.push(laserCloudMsg);
-    mutex_lock.unlock();
+    // mutex_lock.unlock();
 }
 
 bool is_odom_inited = false;
@@ -140,23 +142,30 @@ int main(int argc, char **argv)
     double max_dis = 60.0;
     double min_dis = 2.0;
     double map_resolution = 0.4;
+    
+    // 从参数服务器读取参数
     nh.getParam("/scan_period", scan_period); 
     nh.getParam("/vertical_angle", vertical_angle); 
     nh.getParam("/max_dis", max_dis);
     nh.getParam("/min_dis", min_dis);
     nh.getParam("/scan_line", scan_line);
     nh.getParam("/map_resolution", map_resolution);
-
+    
+    // 设置lidar参数
     lidar_param.setScanPeriod(scan_period);
     lidar_param.setVerticalAngle(vertical_angle);
     lidar_param.setLines(scan_line);
     lidar_param.setMaxDistance(max_dis);
     lidar_param.setMinDistance(min_dis);
 
+    // 用lidar初始化odom
     odomEstimation.init(lidar_param, map_resolution);
+    
+    // 订阅laser发布的两个topic
     ros::Subscriber subEdgeLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>("/laser_cloud_edge", 100, velodyneEdgeHandler);
     ros::Subscriber subSurfLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>("/laser_cloud_surf", 100, velodyneSurfHandler);
 
+    // 发布odom话题
     pubLaserOdometry = nh.advertise<nav_msgs::Odometry>("/odom", 100);
     std::thread odom_estimation_process{odom_estimation};
 
