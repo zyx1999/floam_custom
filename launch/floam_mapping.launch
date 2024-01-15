@@ -2,7 +2,7 @@
 <launch>
 
     
-    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock -r 0.5 $(env HOME)/Downloads/kitti-raw/2011_09_26/2011_09_26_drive_0002_sync/testbag.bag"/> 
+    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock -r 0.5 $(env HOME)/Downloads/kitti-raw/2011_09_30/2011_09_30_drive_0018_sync/testbag.bag"/> 
     
     <!-- For Velodyne VLP-16 
     <param name="scan_line" value="16" />
