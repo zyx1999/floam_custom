@@ -1,8 +1,8 @@
-// Author of FLOAM: Wang Han 
+// Author of FLOAM: Wang Han
 // Email wh200720041@gmail.com
 // Homepage https://wanghan.pro
 
-//c++ lib
+// c++ lib
 #include <cmath>
 #include <vector>
 #include <mutex>
@@ -10,7 +10,7 @@
 #include <thread>
 #include <chrono>
 
-//ros lib
+// ros lib
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -18,15 +18,14 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
-//pcl lib
+// pcl lib
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
-//local lib
+// local lib
 #include "lidar.h"
 #include "laserProcessingClass.h"
-
 
 LaserProcessingClass laserProcessing;
 std::mutex mutex_lock;
@@ -43,39 +42,42 @@ void velodyneHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
     pointCloudBuf.push(laserCloudMsg);
 }
 
-double total_time =0;
-int total_frame=0;
+double total_time = 0;
+int total_frame = 0;
 
-void laser_processing(){
-    while(1){
-        if(!pointCloudBuf.empty()){
-            //read data
+void laser_processing()
+{
+    while (1)
+    {
+        if (!pointCloudBuf.empty())
+        {
+            // read data
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_in(new pcl::PointCloud<pcl::PointXYZI>());
             ros::Time pointcloud_time;
             {
-                std::lock_guard<std::mutex> lock(mutex_lock);  
+                std::lock_guard<std::mutex> lock(mutex_lock);
                 pcl::fromROSMsg(*pointCloudBuf.front(), *pointcloud_in);
                 pointcloud_time = (pointCloudBuf.front())->header.stamp;
                 pointCloudBuf.pop();
             }
-            pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_edge(new pcl::PointCloud<pcl::PointXYZI>());          
+            pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_edge(new pcl::PointCloud<pcl::PointXYZI>());
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_surf(new pcl::PointCloud<pcl::PointXYZI>());
 
             std::chrono::time_point<std::chrono::system_clock> start, end;
             start = std::chrono::system_clock::now();
             // 调用laserProcessingClass::featureExtraction处理点云特征
-            laserProcessing.featureExtraction(pointcloud_in,pointcloud_edge,pointcloud_surf);
+            laserProcessing.featureExtraction(pointcloud_in, pointcloud_edge, pointcloud_surf);
             end = std::chrono::system_clock::now();
             std::chrono::duration<float> elapsed_seconds = end - start;
             total_frame++;
             float time_temp = elapsed_seconds.count() * 1000;
-            total_time+=time_temp;
-            //ROS_INFO("average laser processing time %f ms \n \n", total_time/total_frame);
+            total_time += time_temp;
+            // ROS_INFO("average laser processing time %f ms \n \n", total_time/total_frame);
 
             sensor_msgs::PointCloud2 laserCloudFilteredMsg;
-            pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_filtered(new pcl::PointCloud<pcl::PointXYZI>());  
-            *pointcloud_filtered+=*pointcloud_edge;
-            *pointcloud_filtered+=*pointcloud_surf;
+            pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_filtered(new pcl::PointCloud<pcl::PointXYZI>());
+            *pointcloud_filtered += *pointcloud_edge;
+            *pointcloud_filtered += *pointcloud_surf;
             pcl::toROSMsg(*pointcloud_filtered, laserCloudFilteredMsg);
             laserCloudFilteredMsg.header.stamp = pointcloud_time;
             laserCloudFilteredMsg.header.frame_id = "base_link";
@@ -93,7 +95,7 @@ void laser_processing(){
             surfPointsMsg.header.frame_id = "base_link";
             pubSurfPoints.publish(surfPointsMsg);
         }
-        //sleep 2 ms every time
+        // sleep 2 ms every time
         std::chrono::milliseconds dura(2);
         std::this_thread::sleep_for(dura);
     }
@@ -114,12 +116,12 @@ int main(int argc, char **argv)
 
     int scan_line = 64;
     double vertical_angle = 2.0;
-    double scan_period= 0.1;
+    double scan_period = 0.1;
     double max_dis = 60.0;
     double min_dis = 2.0;
 
-    nh.getParam("/scan_period", scan_period); 
-    nh.getParam("/vertical_angle", vertical_angle); 
+    nh.getParam("/scan_period", scan_period);
+    nh.getParam("/vertical_angle", vertical_angle);
     nh.getParam("/max_dis", max_dis);
     nh.getParam("/min_dis", min_dis);
     nh.getParam("/scan_line", scan_line);
@@ -140,7 +142,7 @@ int main(int argc, char **argv)
     // edge feature
     pubEdgePoints = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_edge", 100);
     // surf feature
-    pubSurfPoints = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surf", 100); 
+    pubSurfPoints = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surf", 100);
 
     // 创建线程，调用laser_processing()方法
     std::thread laser_processing_process{laser_processing};
@@ -149,4 +151,3 @@ int main(int argc, char **argv)
 
     return 0;
 }
-
