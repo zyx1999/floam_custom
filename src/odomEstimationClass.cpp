@@ -45,10 +45,12 @@ void OdomEstimationClass::updatePointsToMap(
     if (optimization_count > 2)
         optimization_count--;
 
+    // 更新里程计计数
     Eigen::Isometry3d odom_prediction = odom * (last_odom.inverse() * odom);
     last_odom                         = odom;
     odom                              = odom_prediction;
 
+    // 分解为旋转与平移
     q_w_curr = Eigen::Quaterniond(odom.rotation());
     t_w_curr = odom.translation();
 
@@ -56,20 +58,22 @@ void OdomEstimationClass::updatePointsToMap(
         new pcl::PointCloud<pcl::PointXYZI>());
     pcl::PointCloud<pcl::PointXYZI>::Ptr downsampledSurfCloud(
         new pcl::PointCloud<pcl::PointXYZI>());
+    // 降采样点云
     downSamplingToMap(edge_in, downsampledEdgeCloud, surf_in,
                       downsampledSurfCloud);
     // ROS_WARN("point nyum%d,%d",(int)downsampledEdgeCloud->points.size(),
     // (int)downsampledSurfCloud->points.size());
     if (laserCloudCornerMap->points.size() > 10 &&
         laserCloudSurfMap->points.size() > 50) {
+        // KD树设置目标点云
         kdtreeEdgeMap->setInputCloud(laserCloudCornerMap);
         kdtreeSurfMap->setInputCloud(laserCloudSurfMap);
-
+        // 非线性优化求解
         for (int iterCount = 0; iterCount < optimization_count; iterCount++) {
-            ceres::LossFunction*    loss_function = new ceres::HuberLoss(0.1);
+            ceres::LossFunction* loss_function = new ceres::HuberLoss(0.1);
             ceres::Problem::Options problem_options;
-            ceres::Problem          problem(problem_options);
-
+            ceres::Problem problem(problem_options);
+            // 设置优化参数
             problem.AddParameterBlock(parameters, 7,
                                       new PoseSE3Parameterization());
 
@@ -92,6 +96,11 @@ void OdomEstimationClass::updatePointsToMap(
     else {
         printf("not enough points in map to associate, map error");
     }
+    /*
+    q_w_curr和t_w_curr与parameters通过Eigen::Map完成映射，
+    因此在优化过程中parameters值的调整同样使得q_w_curr和t_w_curr改变。
+    由此odom将获得最新的位姿变换（从当前到世界）
+    */
     odom               = Eigen::Isometry3d::Identity();
     odom.linear()      = q_w_curr.toRotationMatrix();
     odom.translation() = t_w_curr;
@@ -99,7 +108,7 @@ void OdomEstimationClass::updatePointsToMap(
 }
 
 void OdomEstimationClass::pointAssociateToMap(pcl::PointXYZI const* const pi,
-                                              pcl::PointXYZI* const       po)
+                                              pcl::PointXYZI* const po)
 {
     Eigen::Vector3d point_curr(pi->x, pi->y, pi->z);
     Eigen::Vector3d point_w = q_w_curr * point_curr + t_w_curr;
@@ -112,9 +121,9 @@ void OdomEstimationClass::pointAssociateToMap(pcl::PointXYZI const* const pi,
 
 void OdomEstimationClass::downSamplingToMap(
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& edge_pc_in,
-    pcl::PointCloud<pcl::PointXYZI>::Ptr&       edge_pc_out,
+    pcl::PointCloud<pcl::PointXYZI>::Ptr& edge_pc_out,
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& surf_pc_in,
-    pcl::PointCloud<pcl::PointXYZI>::Ptr&       surf_pc_out)
+    pcl::PointCloud<pcl::PointXYZI>::Ptr& surf_pc_out)
 {
     downSizeFilterEdge.setInputCloud(edge_pc_in);
     downSizeFilterEdge.filter(*edge_pc_out);
@@ -125,21 +134,24 @@ void OdomEstimationClass::downSamplingToMap(
 void OdomEstimationClass::addEdgeCostFactor(
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& pc_in,
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& map_in,
-    ceres::Problem&                             problem,
-    ceres::LossFunction*                        loss_function)
+    ceres::Problem& problem,
+    ceres::LossFunction* loss_function)
 {
     int corner_num = 0;
     for (int i = 0; i < (int)pc_in->points.size(); i++) {
         pcl::PointXYZI point_temp;
+        // 当前帧点云变换到世界坐标系
         pointAssociateToMap(&(pc_in->points[i]), &point_temp);
 
-        std::vector<int>   pointSearchInd;
+        std::vector<int> pointSearchInd;
         std::vector<float> pointSearchSqDis;
+        // 从全局特征点云中寻找与当前点（新帧）最近的5个点，并返回索引与距离（按平方距离升序排列）
         kdtreeEdgeMap->nearestKSearch(point_temp, 5, pointSearchInd,
                                       pointSearchSqDis);
+        // 最远的邻域点满足阈值(1.0)，则认为邻域点足够近
         if (pointSearchSqDis[4] < 1.0) {
             std::vector<Eigen::Vector3d> nearCorners;
-            Eigen::Vector3d              center(0, 0, 0);
+            Eigen::Vector3d center(0, 0, 0);
             for (int j = 0; j < 5; j++) {
                 Eigen::Vector3d tmp(map_in->points[pointSearchInd[j]].x,
                                     map_in->points[pointSearchInd[j]].y,
@@ -147,28 +159,37 @@ void OdomEstimationClass::addEdgeCostFactor(
                 center = center + tmp;
                 nearCorners.push_back(tmp);
             }
+            // 计算邻域点的几何中心
             center = center / 5.0;
-
+            /* 计算协方差矩阵：
+                协方差矩阵用于描述点集在空间中的扩散程度和方向。通过计算协方差矩阵的特征值和特征向量，
+                可以获得点集的主要分布方向和形状（例如，是否形成线性或平面结构）。*/
             Eigen::Matrix3d covMat = Eigen::Matrix3d::Zero();
             for (int j = 0; j < 5; j++) {
+                // 计算邻域点与几何中心的差值
                 Eigen::Matrix<double, 3, 1> tmpZeroMean =
                     nearCorners[j] - center;
-                covMat = covMat + tmpZeroMean * tmpZeroMean.transpose();
+                covMat += tmpZeroMean * tmpZeroMean.transpose();
             }
-
+            // 对协方差矩阵使用特征值分解
             Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> saes(covMat);
-
+            // 提取具有最大特征值的特征向量，这是点集的主要方向
             Eigen::Vector3d unit_direction = saes.eigenvectors().col(2);
             Eigen::Vector3d curr_point(pc_in->points[i].x, pc_in->points[i].y,
                                        pc_in->points[i].z);
+            // 当最大的特征值是次大特征值的3倍以上时
             if (saes.eigenvalues()[2] > 3 * saes.eigenvalues()[1]) {
+                // 根据几何中心和主方向定义一条线段（用point_a, point_b表示）
                 Eigen::Vector3d point_on_line = center;
                 Eigen::Vector3d point_a, point_b;
                 point_a = 0.1 * unit_direction + point_on_line;
                 point_b = -0.1 * unit_direction + point_on_line;
-
+                /*  创建边缘点代价函数，优化的目标是：
+                    最小化“当前帧中的当前特征点”到“该特征点坐标在的全局特征点云的邻域中的主方向线段”的误差    
+                */
                 ceres::CostFunction* cost_function =
                     new EdgeAnalyticCostFunction(curr_point, point_a, point_b);
+                // 将残差块加入problem
                 problem.AddResidualBlock(cost_function, loss_function,
                                          parameters);
                 corner_num++;
@@ -183,14 +204,14 @@ void OdomEstimationClass::addEdgeCostFactor(
 void OdomEstimationClass::addSurfCostFactor(
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& pc_in,
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& map_in,
-    ceres::Problem&                             problem,
-    ceres::LossFunction*                        loss_function)
+    ceres::Problem& problem,
+    ceres::LossFunction* loss_function)
 {
     int surf_num = 0;
     for (int i = 0; i < (int)pc_in->points.size(); i++) {
         pcl::PointXYZI point_temp;
         pointAssociateToMap(&(pc_in->points[i]), &point_temp);
-        std::vector<int>   pointSearchInd;
+        std::vector<int> pointSearchInd;
         std::vector<float> pointSearchSqDis;
         kdtreeSurfMap->nearestKSearch(point_temp, 5, pointSearchInd,
                                       pointSearchSqDis);
@@ -204,14 +225,18 @@ void OdomEstimationClass::addSurfCostFactor(
                 matA0(j, 1) = map_in->points[pointSearchInd[j]].y;
                 matA0(j, 2) = map_in->points[pointSearchInd[j]].z;
             }
-            // find the norm of plane
+            // 求解平面法向量
             Eigen::Vector3d norm = matA0.colPivHouseholderQr().solve(matB0);
-            double          negative_OA_dot_norm = 1 / norm.norm();
+            // negative_OA_dot_norm = 1/sqrt(sqrt(a^2+b^2+c^2))
+            double negative_OA_dot_norm = 1 / norm.norm();
+            // 单位法向量
             norm.normalize();
-
+            // 平面公式: ax + by + cz + d = 0, n = (a, b, c), p = (x, y, z)
+            // Dis = ||ax+by+cz+d||/sqrt(a^2+b^2+c^2)
+            // 检查平面拟合效果
             bool planeValid = true;
             for (int j = 0; j < 5; j++) {
-                // if OX * n > 0.2, then plane is not fit well
+                // if ax+by+cz+d > 0.2, then plane is not fit well
                 if (fabs(norm(0) * map_in->points[pointSearchInd[j]].x +
                          norm(1) * map_in->points[pointSearchInd[j]].y +
                          norm(2) * map_in->points[pointSearchInd[j]].z +
