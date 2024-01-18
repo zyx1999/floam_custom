@@ -27,8 +27,9 @@
     <node pkg="floam" type="floam_odom_estimation_node" name="floam_odom_estimation_node" output="screen"/>
     <node pkg="floam" type="floam_laser_processing_node" name="floam_laser_processing_node" output="screen"/>
     <node pkg="floam" type="floam_laser_mapping_node" name="floam_laser_mapping_node" output="screen"/>
-
-    <node pkg="tf" type="static_transform_publisher" name="word2map_tf"  args="0 0 0 0 0 0 /world /map 10" />
+    
+    <!-- 开启tf节点，以10Hz发布从坐标系/world到坐标系/map的静态坐标变换，[000000]意味着这两个坐标系是重叠的-->
+    <node pkg="tf" type="static_transform_publisher" name="world2map_tf"  args="0 0 0 0 0 0 /world /map 10" />
     
     <arg name="rviz" default="true" />
     <group if="$(arg rviz)">

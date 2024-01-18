@@ -96,7 +96,7 @@ void odom_estimation()
                 // 使用新的点云更新里程计估计
                 std::chrono::time_point<std::chrono::system_clock> start, end;
                 start = std::chrono::system_clock::now();
-                // 该方法将更新odom所代表的变换，同时更新
+                // 该方法将更新odom所代表的变换，同时更新全局地图
                 odomEstimation.updatePointsToMap(pointcloud_edge_in,
                                                  pointcloud_surf_in);
                 end = std::chrono::system_clock::now();
@@ -120,6 +120,7 @@ void odom_estimation()
             tf::Quaternion q(q_current.x(), q_current.y(), q_current.z(),
                              q_current.w());
             transform.setRotation(q);
+            // 发布从坐标系/map到/base_link的变换（与时间戳关联）
             br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),
                                                   "map", "base_link"));
 
