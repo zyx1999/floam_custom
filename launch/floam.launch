@@ -55,7 +55,7 @@
         <param name="/trajectory_update_rate" value="10.0" />
         <param name="/trajectory_publish_rate" value="10.0" />
     </node>
-
+    <param name="saved_path" value="/home/yuxuanzhao/ros_workspace/floam_ws/src/floam/result/evo_result/kitti_05_odom.txt" />
     <node pkg="floam" type="save_pose_node" name="save_pose_node" output="screen" />
 
 </launch>
