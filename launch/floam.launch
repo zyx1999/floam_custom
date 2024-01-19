@@ -56,4 +56,6 @@
         <param name="/trajectory_publish_rate" value="10.0" />
     </node>
 
+    <node pkg="floam" type="save_pose_node" name="save_pose_node" output="screen" />
+
 </launch>

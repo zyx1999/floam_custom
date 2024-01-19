@@ -120,7 +120,7 @@ void odom_estimation()
             tf::Quaternion q(q_current.x(), q_current.y(), q_current.z(),
                              q_current.w());
             transform.setRotation(q);
-            // 发布从坐标系/map到/base_link的变换（与时间戳关联）
+            // 发布从坐标系map到base_link的变换（与时间戳关联）
             br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),
                                                   "map", "base_link"));
 
