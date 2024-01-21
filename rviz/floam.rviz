@@ -9,6 +9,7 @@ Panels:
         - /Grid1
         - /TF1
         - /TF1/Frames1
+        - /raw_data1
       Splitter Ratio: 0.5
     Tree Height: 500
   - Class: rviz/Selection
@@ -88,7 +89,7 @@ Visualization Manager:
         map:
           Value: false
         velodyne:
-          Value: true
+          Value: false
         world:
           Value: true
       Marker Alpha: 1
@@ -127,7 +128,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -142,7 +143,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
@@ -195,7 +196,7 @@ Visualization Manager:
   Global Options:
     Background Color: 0; 0; 0
     Default Light: true
-    Fixed Frame: world
+    Fixed Frame: base_link
     Frame Rate: 30
   Name: root
   Tools:
@@ -219,7 +220,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 22.099916458129883
+      Distance: 72.34613037109375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -227,17 +228,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -3.6897339820861816
-        Y: 4.4283833503723145
-        Z: 41.68251419067383
+        X: -1.8282560110092163
+        Y: 23.373676300048828
+        Z: 0.7970343232154846
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.654796838760376
+      Pitch: -0.00020250678062438965
       Target Frame: body
-      Yaw: 2.7603981494903564
+      Yaw: 5.588579177856445
     Saved: ~
 Window Geometry:
   Displays:

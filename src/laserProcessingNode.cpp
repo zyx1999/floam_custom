@@ -27,11 +27,12 @@
 #include "laserProcessingClass.h"
 #include "lidar.h"
 
-LaserProcessingClass                         laserProcessing;
-std::mutex                                   mutex_lock;
+LaserProcessingClass laserProcessing;
+std::mutex mutex_lock;
 std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudBuf;
-lidar::Lidar                                 lidar_param;
+lidar::Lidar lidar_param;
 
+ros::Publisher pubFilteredGroundDebug;
 ros::Publisher pubEdgePoints;
 ros::Publisher pubSurfPoints;
 ros::Publisher pubLaserCloudFiltered;
@@ -42,8 +43,10 @@ void velodyneHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     pointCloudBuf.push(laserCloudMsg);
 }
 
-double total_time  = 0;
-int    total_frame = 0;
+double total_time = 0;
+int total_frame   = 0;
+float threshold_height = -1.73;
+float threshold_width = 40;
 
 void laser_processing()
 {
@@ -59,6 +62,29 @@ void laser_processing()
                 pointcloud_time = (pointCloudBuf.front())->header.stamp;
                 pointCloudBuf.pop();
             }
+            /*
+                TODO:在featureExtraction()前过滤出地面点云，发布一个新话题用于Debug。
+
+            */
+            // rage X in(-80, 80), Y in(-80, 80), Z in(-25, 3)
+            pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_fg(
+                new pcl::PointCloud<pcl::PointXYZI>());
+            for (int i = 0; i < (int)pointcloud_in->points.size(); i++) {
+                if (pointcloud_in->points[i].z < threshold_height &&
+                    pointcloud_in->points[i].y < threshold_width &&
+                    pointcloud_in->points[i].y > -threshold_width) {
+                    pointcloud_fg->push_back(pointcloud_in->points[i]);
+                }
+            }
+            sensor_msgs::PointCloud2 filteredGroundPointsMsg;
+            pcl::toROSMsg(*pointcloud_fg, filteredGroundPointsMsg);
+            filteredGroundPointsMsg.header.stamp    = pointcloud_time;
+            filteredGroundPointsMsg.header.frame_id = "base_link";
+            pubFilteredGroundDebug.publish(filteredGroundPointsMsg);
+            ROS_INFO("Before: {%ld}   <===>   After {%ld}",
+                     pointcloud_in->points.size(),
+                     pointcloud_fg->points.size());
+
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_edge(
                 new pcl::PointCloud<pcl::PointXYZI>());
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_surf(
@@ -77,7 +103,7 @@ void laser_processing()
             // ROS_INFO("average laser processing time %f ms \n \n",
             // total_time/total_frame);
 
-            sensor_msgs::PointCloud2             laserCloudFilteredMsg;
+            sensor_msgs::PointCloud2 laserCloudFilteredMsg;
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_filtered(
                 new pcl::PointCloud<pcl::PointXYZI>());
             *pointcloud_filtered += *pointcloud_edge;
@@ -120,7 +146,7 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "main");
     ros::NodeHandle nh;
 
-    int    scan_line      = 64;
+    int scan_line         = 64;
     double vertical_angle = 2.0;
     double scan_period    = 0.1;
     double max_dis        = 60.0;
@@ -131,6 +157,8 @@ int main(int argc, char** argv)
     nh.getParam("/max_dis", max_dis);
     nh.getParam("/min_dis", min_dis);
     nh.getParam("/scan_line", scan_line);
+    nh.getParam("/threshold_height", threshold_height);
+    nh.getParam("/threshold_width", threshold_width);
 
     lidar_param.setScanPeriod(scan_period);
     lidar_param.setVerticalAngle(vertical_angle);
@@ -143,6 +171,9 @@ int main(int argc, char** argv)
     // 订阅testbag里的topic: velodyne_points
     ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(
         "/velodyne_points", 100, velodyneHandler);
+
+    pubFilteredGroundDebug =
+        nh.advertise<sensor_msgs::PointCloud2>("/ground_points", 100);
 
     // filtered = egde + surf
     pubLaserCloudFiltered = nh.advertise<sensor_msgs::PointCloud2>(
