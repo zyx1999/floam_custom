@@ -43,10 +43,11 @@ void velodyneHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     pointCloudBuf.push(laserCloudMsg);
 }
 
-double total_time = 0;
-int total_frame   = 0;
+double total_time      = 0;
+int total_frame        = 0;
 float threshold_height = -1.73;
-float threshold_width = 40;
+float threshold_width  = 40;
+bool useFilteredGroundPoints{false};
 
 void laser_processing()
 {
@@ -62,11 +63,8 @@ void laser_processing()
                 pointcloud_time = (pointCloudBuf.front())->header.stamp;
                 pointCloudBuf.pop();
             }
-            /*
-                TODO:在featureExtraction()前过滤出地面点云，发布一个新话题用于Debug。
-
-            */
-            // rage X in(-80, 80), Y in(-80, 80), Z in(-25, 3)
+            /*  在featureExtraction()前过滤出地面点云，发布一个新话题用于Debug。
+                rage X in(-80, 80), Y in(-80, 80), Z in(-25, 3) */
             pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_fg(
                 new pcl::PointCloud<pcl::PointXYZI>());
             for (int i = 0; i < (int)pointcloud_in->points.size(); i++) {
@@ -93,8 +91,15 @@ void laser_processing()
             std::chrono::time_point<std::chrono::system_clock> start, end;
             start = std::chrono::system_clock::now();
             // 调用laserProcessingClass::featureExtraction处理点云特征
-            laserProcessing.featureExtraction(pointcloud_in, pointcloud_edge,
-                                              pointcloud_surf);
+            if (useFilteredGroundPoints) {
+                ROS_INFO("Using Filtered Points");
+                laserProcessing.featureExtraction(
+                    pointcloud_fg, pointcloud_edge, pointcloud_surf);
+            }
+            else {
+                laserProcessing.featureExtraction(
+                    pointcloud_in, pointcloud_edge, pointcloud_surf);
+            }
             end = std::chrono::system_clock::now();
             std::chrono::duration<float> elapsed_seconds = end - start;
             total_frame++;
@@ -159,6 +164,8 @@ int main(int argc, char** argv)
     nh.getParam("/scan_line", scan_line);
     nh.getParam("/threshold_height", threshold_height);
     nh.getParam("/threshold_width", threshold_width);
+    nh.getParam("/useFilteredGroundPoints", useFilteredGroundPoints);
+    
 
     lidar_param.setScanPeriod(scan_period);
     lidar_param.setVerticalAngle(vertical_angle);
