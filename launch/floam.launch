@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <launch>
-
-    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock $(env HOME)/Downloads/kitti-raw/2011_09_30/2011_09_30_drive_0018_sync/testbag.bag"/> 
+    <!-- 2011_09_26/2011_09_26_drive_0029_sync/testbag.bag -->
+    <!-- 2011_09_30/2011_09_30_drive_0018_sync/testbag.bag -->
+    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock -r 0.2 $(env HOME)/Downloads/kitti-raw/2011_09_26/2011_09_26_drive_0029_sync/testbag.bag"/>
 
     <!-- For Velodyne VLP-16 
     <param name="scan_line" value="16" />
@@ -55,7 +56,10 @@
         <param name="/trajectory_update_rate" value="10.0" />
         <param name="/trajectory_publish_rate" value="10.0" />
     </node>
-    <param name="saved_path" value="/home/yuxuanzhao/ros_workspace/floam_ws/src/floam/result/evo_result/kitti_05_odom.txt" />
-    <node pkg="floam" type="save_pose_node" name="save_pose_node" output="screen" />
 
+    <arg name="ifsave" default="false"/>
+    <group if="$(arg ifsave)">
+        <param name="saved_path" value="/home/yuxuanzhao/ros_workspace/floam_ws/src/floam/result/evo_result/kitti_05_odom.txt" />
+        <node pkg="floam" type="save_pose_node" name="save_pose_node" output="screen"/>
+    </group>
 </launch>
