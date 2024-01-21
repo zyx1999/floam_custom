@@ -13,10 +13,6 @@ void LaserProcessingClass::featureExtraction(
     pcl::PointCloud<pcl::PointXYZI>::Ptr&       pc_out_edge,
     pcl::PointCloud<pcl::PointXYZI>::Ptr&       pc_out_surf)
 {
-    std::vector<int> indices;
-    // 没起作用
-    pcl::removeNaNFromPointCloud(*pc_in, indices);
-
     // 按照lidar线数初始化空vector，用于保存XYZI点云指针
     int N_SCANS = lidar_param.num_lines;
     std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr> laserCloudScans(N_SCANS);
