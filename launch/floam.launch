@@ -2,7 +2,7 @@
 <launch>
     <!-- 2011_09_26/2011_09_26_drive_0029_sync/testbag.bag -->
     <!-- [05] 2011_09_30/2011_09_30_drive_0018_sync/testbag.bag -->
-    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock $(env HOME)/Downloads/kitti-raw/2011_09_30/2011_09_30_drive_0018_sync/testbag.bag"/>
+    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock  $(env HOME)/Downloads/kitti-raw/2011_09_30/2011_09_30_drive_0018_sync/testbag.bag"/>
 
     <!-- For Velodyne VLP-16 
     <param name="scan_line" value="16" />
@@ -24,6 +24,11 @@
     <param name="threshold_height" value = "-1.3" />
     <!-- Width of traffic lane -->
     <param name="threshold_width" value = "15" />
+    <param name="sdf_x_bound" value = "30" />
+    <param name="sdf_y_bound" value = "15" />
+    <param name="sdf_z_min" value = "-2" />
+
+    <param name="sdf_resolution" value = "1" />
     <param name="useFilteredGroundPoints" value="true" />
     <!-- -->
     <node pkg="floam" type="floam_laser_processing_node" name="floam_laser_processing_node" output="screen"/>
