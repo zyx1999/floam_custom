@@ -91,11 +91,7 @@ void laser_processing()
             // 计算3D SDF
             pcl::PointCloud<pcl::PointXYZI>::Ptr distance_field(
                 new pcl::PointCloud<pcl::PointXYZI>());
-            // Eigen::Vector3f grid_min(-sdf_x_bound, -sdf_y_bound, sdf_z_min);
-            // Eigen::Vector3f grid_max(sdf_x_bound, sdf_y_bound,
-            //                          threshold_height);
-            df.computeDistanceField(pointcloud_fg, sdf_resolution,
-                                    distance_field);
+            df.computeDistanceField(pointcloud_fg, distance_field);
             pcl::PointCloud<pcl::PointXYZI>::Ptr sdf_keypoints(
                 new pcl::PointCloud<pcl::PointXYZI>());
             df.detectKeypoints(distance_field, sdf_keypoints);

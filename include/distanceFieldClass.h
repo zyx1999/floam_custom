@@ -10,11 +10,11 @@
 class DistanceField {
   public:
     DistanceField() {}
-    DistanceField(int sdf_x_bound,
-                  int sdf_y_bound,
-                  int sdf_z_lower,
-                  int sdf_z_upper,
-                  int sdf_resolution)
+    DistanceField(float sdf_x_bound,
+                  float sdf_y_bound,
+                  float sdf_z_lower,
+                  float sdf_z_upper,
+                  float sdf_resolution)
         : sdf_x_bound_(sdf_x_bound), sdf_y_bound_(sdf_y_bound),
           sdf_z_lower_(sdf_z_lower), sdf_z_upper_(sdf_z_upper),
           sdf_resolution_(sdf_resolution)
@@ -36,16 +36,15 @@ class DistanceField {
         const std::vector<int>& neighbors_ids);
     void
     computeDistanceField(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud,
-                         float resolution,
                          pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field);
 
   private:
     pcl::PointCloud<pcl::PointXYZI>::Ptr distance_field_;
-    int sdf_x_bound_;
-    int sdf_y_bound_;
-    int sdf_z_lower_;
-    int sdf_z_upper_;
-    int sdf_resolution_;
+    float sdf_x_bound_;
+    float sdf_y_bound_;
+    float sdf_z_lower_;
+    float sdf_z_upper_;
+    float sdf_resolution_;
     int pointPerRow;
     int pointPerCol;
 };

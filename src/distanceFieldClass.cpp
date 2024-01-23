@@ -2,7 +2,6 @@
 
 void DistanceField::computeDistanceField(
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud,
-    float resolution,
     pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field)
 {
     Eigen::Vector3f grid_min(-sdf_x_bound_, -sdf_y_bound_, sdf_z_lower_);
@@ -11,9 +10,9 @@ void DistanceField::computeDistanceField(
     pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
     kdtree.setInputCloud(cloud);
     // 遍历体素网格
-    for (float x = grid_min.x(); x <= grid_max.x(); x += resolution) {
-        for (float y = grid_min.y(); y <= grid_max.y(); y += resolution) {
-            for (float z = grid_min.z(); z <= grid_max.z(); z += resolution) {
+    for (float x = grid_min.x(); x <= grid_max.x(); x += sdf_resolution_) {
+        for (float y = grid_min.y(); y <= grid_max.y(); y += sdf_resolution_) {
+            for (float z = grid_min.z(); z <= grid_max.z(); z += sdf_resolution_) {
                 pcl::PointXYZI searchPoint;
                 searchPoint.x = x;
                 searchPoint.y = y;
