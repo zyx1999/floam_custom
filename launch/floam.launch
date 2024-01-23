@@ -26,7 +26,7 @@
     <param name="threshold_width" value = "15" />
     <param name="sdf_x_bound" value = "30" />
     <param name="sdf_y_bound" value = "15" />
-    <param name="sdf_z_min" value = "-2" />
+    <param name="sdf_z_lower" value = "-2" />
 
     <param name="sdf_resolution" value = "1" />
     <param name="useFilteredGroundPoints" value="true" />

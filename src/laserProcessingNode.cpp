@@ -26,6 +26,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 // local lib
+#include "distanceFieldClass.h"
 #include "laserProcessingClass.h"
 #include "lidar.h"
 
@@ -39,6 +40,7 @@ ros::Publisher pubDistanceField;
 ros::Publisher pubEdgePoints;
 ros::Publisher pubSurfPoints;
 ros::Publisher pubLaserCloudFiltered;
+ros::Publisher pubSDFKeypoints;
 
 void velodyneHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 {
@@ -50,46 +52,11 @@ double total_time      = 0;
 int total_frame        = 0;
 float threshold_height = -1.73;
 float threshold_width  = 40;
-float sdf_x_bound = 10;
-float sdf_y_bound = 10;
-float sdf_z_min = -5;
+float sdf_x_bound      = 10;
+float sdf_y_bound      = 10;
+float sdf_z_lower      = -5;
 float sdf_resolution   = 1;  // 体素网格的分辨率
 bool useFilteredGroundPoints{false};
-
-void computeDistanceField(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud,
-                          Eigen::Vector3f grid_min,
-                          Eigen::Vector3f grid_max,
-                          float resolution,
-                          pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field)
-{
-    // 创建 KdTree 以加速最近邻搜索
-    pcl::KdTreeFLANN<pcl::PointXYZI> kdtree;
-    kdtree.setInputCloud(cloud);
-    // 遍历体素网格
-    for (float x = grid_min.x(); x <= grid_max.x(); x += resolution) {
-        for (float y = grid_min.y(); y <= grid_max.y(); y += resolution) {
-            for (float z = grid_min.z(); z <= grid_max.z(); z += resolution) {
-                pcl::PointXYZI searchPoint;
-                searchPoint.x = x;
-                searchPoint.y = y;
-                searchPoint.z = z;
-                // 执行最近邻搜索
-                std::vector<int> pointIdxNKNSearch(1);
-                std::vector<float> pointNKNSquaredDistance(1);
-                if (kdtree.nearestKSearch(searchPoint, 1, pointIdxNKNSearch,
-                                          pointNKNSquaredDistance) > 0) {
-                    // 计算距离并存储在距离场中
-                    pcl::PointXYZI point;
-                    point.x         = x;
-                    point.y         = y;
-                    point.z         = z;
-                    point.intensity = std::sqrt(pointNKNSquaredDistance[0]);
-                    distance_field->push_back(point);
-                }
-            }
-        }
-    }
-}
 
 void laser_processing()
 {
@@ -119,16 +86,21 @@ void laser_processing()
 
             std::chrono::time_point<std::chrono::system_clock> start_0, end_0;
             start_0 = std::chrono::system_clock::now();
+            DistanceField df(sdf_x_bound, sdf_y_bound, sdf_z_lower,
+                             threshold_height, sdf_resolution);
             // 计算3D SDF
             pcl::PointCloud<pcl::PointXYZI>::Ptr distance_field(
                 new pcl::PointCloud<pcl::PointXYZI>());
-
-            Eigen::Vector3f grid_min(-sdf_x_bound, -sdf_y_bound,
-                                     sdf_z_min);
-            Eigen::Vector3f grid_max(sdf_x_bound, sdf_y_bound,
-                                     threshold_height);
-            computeDistanceField(pointcloud_fg, grid_min, grid_max,
-                                 sdf_resolution, distance_field);
+            // Eigen::Vector3f grid_min(-sdf_x_bound, -sdf_y_bound, sdf_z_min);
+            // Eigen::Vector3f grid_max(sdf_x_bound, sdf_y_bound,
+            //                          threshold_height);
+            df.computeDistanceField(pointcloud_fg, sdf_resolution,
+                                    distance_field);
+            pcl::PointCloud<pcl::PointXYZI>::Ptr sdf_keypoints(
+                new pcl::PointCloud<pcl::PointXYZI>());
+            df.detectKeypoints(distance_field, sdf_keypoints);
+            // ROS_INFO("Height=%d  Width=%d", distance_field->height,
+            //          distance_field->width);
             end_0 = std::chrono::system_clock::now();
             std::chrono::duration<float> elapsed_seconds_0 = end_0 - start_0;
             float time_temp_0 = elapsed_seconds_0.count() * 1000;
@@ -194,6 +166,12 @@ void laser_processing()
             distanceFieldMsg.header.stamp    = pointcloud_time;
             distanceFieldMsg.header.frame_id = "base_link";
             pubDistanceField.publish(distanceFieldMsg);
+
+            sensor_msgs::PointCloud2 sdfKeypointsMsg;
+            pcl::toROSMsg(*sdf_keypoints, sdfKeypointsMsg);
+            sdfKeypointsMsg.header.stamp    = pointcloud_time;
+            sdfKeypointsMsg.header.frame_id = "base_link";
+            pubSDFKeypoints.publish(sdfKeypointsMsg);
         }
         // sleep 2 ms every time
         std::chrono::milliseconds dura(2);
@@ -231,7 +209,7 @@ int main(int argc, char** argv)
     nh.getParam("/threshold_width", threshold_width);
     nh.getParam("/sdf_x_bound", sdf_x_bound);
     nh.getParam("/sdf_y_bound", sdf_y_bound);
-    nh.getParam("/sdf_z_min", sdf_z_min);
+    nh.getParam("/sdf_z_lower", sdf_z_lower);
     nh.getParam("/sdf_resolution", sdf_resolution);
     nh.getParam("/useFilteredGroundPoints", useFilteredGroundPoints);
 
@@ -252,6 +230,9 @@ int main(int argc, char** argv)
 
     pubDistanceField =
         nh.advertise<sensor_msgs::PointCloud2>("/distance_field", 100);
+
+    pubSDFKeypoints =
+        nh.advertise<sensor_msgs::PointCloud2>("/sdf_keypoints", 100);
 
     // filtered = egde + surf
     pubLaserCloudFiltered = nh.advertise<sensor_msgs::PointCloud2>(
