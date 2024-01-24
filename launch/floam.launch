@@ -24,12 +24,12 @@
     <param name="threshold_height" value = "-1.3" />
     <!-- Width of traffic lane -->
     <param name="threshold_width" value = "15" />
-    <param name="sdf_x_bound" value = "30" />
-    <param name="sdf_y_bound" value = "15" />
+    <param name="sdf_x_bound" value = "15" />
+    <param name="sdf_y_bound" value = "30" />
     <param name="sdf_z_lower" value = "-2" />
 
-    <param name="sdf_resolution" value = "1" />
-    <param name="useFilteredGroundPoints" value="true" />
+    <param name="sdf_resolution" value = "0.5" />
+    <param name="useFilteredGroundPoints" value="false" />
     <!-- -->
     <node pkg="floam" type="floam_laser_processing_node" name="floam_laser_processing_node" output="screen"/>
     <node pkg="floam" type="floam_odom_estimation_node" name="floam_odom_estimation_node" output="screen"/>
@@ -67,7 +67,7 @@
         <param name="/trajectory_publish_rate" value="10.0" />
     </node>
 
-    <arg name="ifsave" default="true"/>
+    <arg name="ifsave" default="false"/>
     <group if="$(arg ifsave)">
         <param name="saved_path" value="/home/yuxuanzhao/ros_workspace/floam_ws/src/floam/result/evo_result/kitti_05_sdf.txt" />
         <node pkg="floam" type="save_pose_node" name="save_pose_node" output="screen"/>

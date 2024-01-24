@@ -12,7 +12,8 @@ void DistanceField::computeDistanceField(
     // 遍历体素网格
     for (float x = grid_min.x(); x <= grid_max.x(); x += sdf_resolution_) {
         for (float y = grid_min.y(); y <= grid_max.y(); y += sdf_resolution_) {
-            for (float z = grid_min.z(); z <= grid_max.z(); z += sdf_resolution_) {
+            // for (float z = grid_min.z(); z <= grid_max.z(); z += sdf_resolution_) {
+                float z = sdf_z_lower_;
                 pcl::PointXYZI searchPoint;
                 searchPoint.x = x;
                 searchPoint.y = y;
@@ -30,7 +31,7 @@ void DistanceField::computeDistanceField(
                     point.intensity = std::sqrt(pointNKNSquaredDistance[0]);
                     distance_field->push_back(point);
                 }
-            }
+            // }
         }
     }
 }
@@ -89,7 +90,7 @@ void DistanceField::detectKeypoints(
         new pcl::PointCloud<pcl::PointXYZI>());
 
     // compute curvature
-    for (int index = 0; index < distance_field->points.size(); ++index) {
+    for (int index = 0; index < (int)distance_field->points.size(); ++index) {
         int rowIdx = index / pointPerRow;
         int colIdx = index % pointPerRow;
         std::vector<int> neighbors_ids;
@@ -114,7 +115,7 @@ void DistanceField::detectKeypoints(
         }
     }
     // search local maximum curvature
-    for (int index = 0; index < sdf_curvature->points.size(); index++) {
+    for (int index = 0; index < (int)sdf_curvature->points.size(); index++) {
         int rowIdx = index / pointPerRow;
         int colIdx = index % pointPerRow;
         std::vector<int> neighbors_ids;

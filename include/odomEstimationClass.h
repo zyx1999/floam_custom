@@ -138,7 +138,8 @@ class OdomEstimationClass {
     /// @param downsampledSurfCloud 降采样后的平面特征点云
     void addPointsToMap(
         const pcl::PointCloud<pcl::PointXYZI>::Ptr& downsampledEdgeCloud,
-        const pcl::PointCloud<pcl::PointXYZI>::Ptr& downsampledSurfCloud);
+        const pcl::PointCloud<pcl::PointXYZI>::Ptr& downsampledSurfCloud,
+        const pcl::PointCloud<pcl::PointXYZI>::Ptr& sdfkptsCloud);
 
     /// @brief 完成从当前坐标系到世界坐标系的变换
     /// @param pi 输入点（当前坐标系）

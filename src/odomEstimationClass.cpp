@@ -80,14 +80,12 @@ void OdomEstimationClass::updatePointsToMap(
             // 设置优化参数
             problem.AddParameterBlock(parameters, 7,
                                       new PoseSE3Parameterization());
-
             addEdgeCostFactor(downsampledEdgeCloud, laserCloudCornerMap,
                               problem, loss_function);
             addSurfCostFactor(downsampledSurfCloud, laserCloudSurfMap, problem,
                               loss_function);
-            // TODO: addSDFKeypointCostFactor
-            addSDFKPCostFactor(sdf_kpts_in, sdfKeyPointsMap, problem,
-                               loss_function);
+            // addSDFKPCostFactor(sdf_kpts_in, sdfKeyPointsMap, problem,
+            //                    loss_function);
             ceres::Solver::Options options;
             options.linear_solver_type                = ceres::DENSE_QR;
             options.max_num_iterations                = 4;
@@ -110,7 +108,7 @@ void OdomEstimationClass::updatePointsToMap(
     odom               = Eigen::Isometry3d::Identity();
     odom.linear()      = q_w_curr.toRotationMatrix();
     odom.translation() = t_w_curr;
-    addPointsToMap(downsampledEdgeCloud, downsampledSurfCloud);
+    addPointsToMap(downsampledEdgeCloud, downsampledSurfCloud, sdf_kpts_in);
 }
 
 void OdomEstimationClass::pointAssociateToMap(pcl::PointXYZI const* const pi,
@@ -291,7 +289,8 @@ void OdomEstimationClass::addSDFKPCostFactor(
 
 void OdomEstimationClass::addPointsToMap(
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& downsampledEdgeCloud,
-    const pcl::PointCloud<pcl::PointXYZI>::Ptr& downsampledSurfCloud)
+    const pcl::PointCloud<pcl::PointXYZI>::Ptr& downsampledSurfCloud,
+    const pcl::PointCloud<pcl::PointXYZI>::Ptr& sdfkptsCloud)
 {
     for (int i = 0; i < (int)downsampledEdgeCloud->points.size(); i++) {
         pcl::PointXYZI point_temp;
@@ -305,6 +304,11 @@ void OdomEstimationClass::addPointsToMap(
         laserCloudSurfMap->push_back(point_temp);
     }
 
+    for (int i = 0; i < (int)sdfkptsCloud->points.size(); i++){
+        pcl::PointXYZI point_temp;
+        pointAssociateToMap(&sdfkptsCloud->points[i], &point_temp);
+        sdfKeyPointsMap->push_back(point_temp);
+    }
     double x_min = +odom.translation().x() - 100;
     double y_min = +odom.translation().y() - 100;
     double z_min = +odom.translation().z() - 100;
@@ -322,15 +326,21 @@ void OdomEstimationClass::addPointsToMap(
         new pcl::PointCloud<pcl::PointXYZI>());
     pcl::PointCloud<pcl::PointXYZI>::Ptr tmpSurf(
         new pcl::PointCloud<pcl::PointXYZI>());
+    pcl::PointCloud<pcl::PointXYZI>::Ptr tmpSDFkpts(
+        new pcl::PointCloud<pcl::PointXYZI>());
     cropBoxFilter.setInputCloud(laserCloudSurfMap);
     cropBoxFilter.filter(*tmpSurf);
     cropBoxFilter.setInputCloud(laserCloudCornerMap);
     cropBoxFilter.filter(*tmpCorner);
+    cropBoxFilter.setInputCloud(sdfKeyPointsMap);
+    cropBoxFilter.filter(*tmpSDFkpts);
 
     downSizeFilterSurf.setInputCloud(tmpSurf);
     downSizeFilterSurf.filter(*laserCloudSurfMap);
     downSizeFilterEdge.setInputCloud(tmpCorner);
     downSizeFilterEdge.filter(*laserCloudCornerMap);
+    downSizeFilterEdge.setInputCloud(tmpSDFkpts);
+    downSizeFilterEdge.filter(*sdfKeyPointsMap);
 }
 
 void OdomEstimationClass::getMap(
