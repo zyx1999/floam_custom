@@ -67,9 +67,9 @@
         <param name="/trajectory_publish_rate" value="10.0" />
     </node>
 
-    <arg name="ifsave" default="false"/>
+    <arg name="ifsave" default="true"/>
     <group if="$(arg ifsave)">
-        <param name="saved_path" value="/home/yuxuanzhao/ros_workspace/floam_ws/src/floam/result/evo_result/kitti_05_origin.txt" />
+        <param name="saved_path" value="/home/yuxuanzhao/ros_workspace/floam_ws/src/floam/result/evo_result/kitti_05_sdf.txt" />
         <node pkg="floam" type="save_pose_node" name="save_pose_node" output="screen"/>
     </group>
 </launch>
