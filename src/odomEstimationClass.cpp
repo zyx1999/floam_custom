@@ -81,7 +81,8 @@ void OdomEstimationClass::updatePointsToMap(
                               problem, loss_function);
             addSurfCostFactor(downsampledSurfCloud, laserCloudSurfMap, problem,
                               loss_function);
-
+            // TODO: addSDFKeypointCostFactor
+            
             ceres::Solver::Options options;
             options.linear_solver_type                = ceres::DENSE_QR;
             options.max_num_iterations                = 4;

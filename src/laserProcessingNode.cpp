@@ -91,9 +91,9 @@ void laser_processing()
             // 计算3D SDF
             pcl::PointCloud<pcl::PointXYZI>::Ptr distance_field(
                 new pcl::PointCloud<pcl::PointXYZI>());
-            df.computeDistanceField(pointcloud_fg, distance_field);
             pcl::PointCloud<pcl::PointXYZI>::Ptr sdf_keypoints(
                 new pcl::PointCloud<pcl::PointXYZI>());
+            df.computeDistanceField(pointcloud_fg, distance_field);
             df.detectKeypoints(distance_field, sdf_keypoints);
             // ROS_INFO("Height=%d  Width=%d", distance_field->height,
             //          distance_field->width);

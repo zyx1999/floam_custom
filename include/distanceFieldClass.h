@@ -29,11 +29,7 @@ class DistanceField {
     void
     detectKeypoints(const pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field,
                     pcl::PointCloud<pcl::PointXYZI>::Ptr& sdf_keypoints);
-    void getNeighborsIds(int index, std::vector<int>& neighbors_ids);
-    Eigen::Matrix2f computeHessianAtPoint(
-        const pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field,
-        int point_index,
-        const std::vector<int>& neighbors_ids);
+
     void
     computeDistanceField(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud,
                          pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field);
@@ -47,6 +43,12 @@ class DistanceField {
     float sdf_resolution_;
     int pointPerRow;
     int pointPerCol;
+
+    void getNeighborsIds(int index, std::vector<int>& neighbors_ids);
+    Eigen::Matrix2f computeHessianAtPoint(
+        const pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field,
+        int point_index,
+        const std::vector<int>& neighbors_ids);
 };
 
 #endif  // _DISTANCE_FIELD_H_
