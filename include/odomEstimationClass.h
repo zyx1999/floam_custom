@@ -44,14 +44,18 @@ class OdomEstimationClass {
     /// 因为首次观测时当前坐标系与世界坐标系重合，因此初始化时可以无需坐标变换。
     /// @param edge_in 边缘特征点云
     /// @param surf_in 平面特征点云
-    void initMapWithPoints(const pcl::PointCloud<pcl::PointXYZI>::Ptr& edge_in,
-                           const pcl::PointCloud<pcl::PointXYZI>::Ptr& surf_in);
+    void
+    initMapWithPoints(const pcl::PointCloud<pcl::PointXYZI>::Ptr& edge_in,
+                      const pcl::PointCloud<pcl::PointXYZI>::Ptr& surf_in,
+                      const pcl::PointCloud<pcl::PointXYZI>::Ptr& sdf_kpts_in);
 
     /// @brief 优化里程计位姿变换，更新局部地图
     /// @param edge_in 边缘特征点
     /// @param surf_in 平面特征点
-    void updatePointsToMap(const pcl::PointCloud<pcl::PointXYZI>::Ptr& edge_in,
-                           const pcl::PointCloud<pcl::PointXYZI>::Ptr& surf_in);
+    void
+    updatePointsToMap(const pcl::PointCloud<pcl::PointXYZI>::Ptr& edge_in,
+                      const pcl::PointCloud<pcl::PointXYZI>::Ptr& surf_in,
+                      const pcl::PointCloud<pcl::PointXYZI>::Ptr& sdf_kpts_in);
 
     void getMap(pcl::PointCloud<pcl::PointXYZI>::Ptr& laserCloudMap);
 
@@ -63,6 +67,9 @@ class OdomEstimationClass {
 
     /// @brief 全局地图（世界坐标系），存储平面特征
     pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfMap;
+
+    /// @brief 全局地图（世界坐标系），存储sdf关键点
+    pcl::PointCloud<pcl::PointXYZI>::Ptr sdfKeyPointsMap;
 
   private:
     /// @brief 初始化用作优化问题中的参数，前4个表示四元数([0, 0, 0,
@@ -94,27 +101,38 @@ class OdomEstimationClass {
     /// @brief optimization count
     int optimization_count;
 
-    
-    /// @brief 遍历当前帧中的特征点，计算当前特征点坐标在全局地图中的邻域内的几何中心，
-	/// 协方差矩阵，特征向量。获取领域内特征点的主方向，构造线段。创建损失函数，添加残差块。
+    /// @brief
+    /// 遍历当前帧中的特征点，计算当前特征点坐标在全局地图中的邻域内的几何中心，
+    /// 协方差矩阵，特征向量。获取领域内特征点的主方向，构造线段。创建损失函数，添加残差块。
     /// @param pc_in 当前帧中的降采样后的边缘特征点云
     /// @param map_in 存放边缘特征的全局地图
-    /// @param problem 
-    /// @param loss_function 
+    /// @param problem
+    /// @param loss_function
     void addEdgeCostFactor(const pcl::PointCloud<pcl::PointXYZI>::Ptr& pc_in,
                            const pcl::PointCloud<pcl::PointXYZI>::Ptr& map_in,
                            ceres::Problem& problem,
                            ceres::LossFunction* loss_function);
-    
-	/// @brief 
-	/// @param pc_in 当前帧中的降采样后的表面特征点云
-	/// @param map_in 存放表面特征的全局地图
-	/// @param problem 
-	/// @param loss_function 
-	void addSurfCostFactor(const pcl::PointCloud<pcl::PointXYZI>::Ptr& pc_in,
+
+    /// @brief
+    /// @param pc_in 当前帧中的降采样后的表面特征点云
+    /// @param map_in 存放表面特征的全局地图
+    /// @param problem
+    /// @param loss_function
+    void addSurfCostFactor(const pcl::PointCloud<pcl::PointXYZI>::Ptr& pc_in,
                            const pcl::PointCloud<pcl::PointXYZI>::Ptr& map_in,
                            ceres::Problem& problem,
                            ceres::LossFunction* loss_function);
+
+    /// @brief
+    /// @param pc_in 当前帧中的SDF关键点
+    /// @param map_in 存放SDF关键点的全局地图
+    /// @param problem
+    /// @param loss_function
+    void addSDFKPCostFactor(const pcl::PointCloud<pcl::PointXYZI>::Ptr& pc_in,
+                            const pcl::PointCloud<pcl::PointXYZI>::Ptr& map_in,
+                            ceres::Problem& problem,
+                            ceres::LossFunction* loss_function);
+
     /// @brief 更新局部地图
     /// @param downsampledEdgeCloud 降采样后的边缘特征点云
     /// @param downsampledSurfCloud 降采样后的平面特征点云

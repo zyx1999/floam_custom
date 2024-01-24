@@ -26,8 +26,10 @@ class EdgeAnalyticCostFunction : public ceres::SizedCostFunction<1, 7> {
   public:
     /// @brief 设置lidar帧特征点和其坐标在全局特征点云邻域内的主方向线段端点。
     /// @param curr_point_ 最新lidar帧中的特征点（边缘）
-    /// @param last_point_a_ 特征点坐标在的全局特征点云的邻域中的主方向线段的端点a
-    /// @param last_point_b_ 特征点坐标在的全局特征点云的邻域中的主方向线段的端点b
+    /// @param last_point_a_
+    /// 特征点坐标在的全局特征点云的邻域中的主方向线段的端点a
+    /// @param last_point_b_
+    /// 特征点坐标在的全局特征点云的邻域中的主方向线段的端点b
     EdgeAnalyticCostFunction(Eigen::Vector3d curr_point_,
                              Eigen::Vector3d last_point_a_,
                              Eigen::Vector3d last_point_b_);
@@ -58,6 +60,19 @@ class SurfNormAnalyticCostFunction : public ceres::SizedCostFunction<1, 7> {
     Eigen::Vector3d curr_point;
     Eigen::Vector3d plane_unit_norm;
     double negative_OA_dot_norm;
+};
+
+class SDFAnalyticCostFunction : public ceres::SizedCostFunction<1, 7> {
+  public:
+    SDFAnalyticCostFunction(Eigen::Vector3d curr_point_,
+                            Eigen::Vector3d last_point_);
+    virtual ~SDFAnalyticCostFunction() {}
+    virtual bool Evaluate(double const* const* parameters,
+                          double* residuals,
+                          double** jacobians) const;
+
+    Eigen::Vector3d curr_point;
+    Eigen::Vector3d last_point;
 };
 
 class PoseSE3Parameterization : public ceres::LocalParameterization {
