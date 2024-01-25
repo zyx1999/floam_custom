@@ -17,7 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
 )
 
-find_package(Eigen3)
+find_package(Eigen3 REQUIRED)
 if(NOT EIGEN3_FOUND)
   # Fallback to cmake_modules
   find_package(cmake_modules REQUIRED)
@@ -28,8 +28,19 @@ if(NOT EIGEN3_FOUND)
 else()
   set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 endif()
+
+# for signed_distance_field
+find_package(OpenMP REQUIRED)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
+
 find_package(PCL REQUIRED)
 find_package(Ceres REQUIRED)
+# for signed_distance_field
+find_package(OpenCV REQUIRED)
 
 include_directories(
   include
@@ -65,3 +76,6 @@ target_link_libraries(floam_laser_mapping_node ${EIGEN3_LIBRARIES} ${catkin_LIBR
 
 add_executable(save_pose_node src/savePoseNode.cpp)
 target_link_libraries(save_pose_node ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES})
+
+add_executable(signed_distance_field_2d_test src/signed_distance_field_2d_test.cpp src/grid_map_2d.cpp src/signed_distance_field_2d.cpp)
+target_link_libraries(signed_distance_field_2d_test  ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES} ${OpenCV_LIBS})
