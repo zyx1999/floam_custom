@@ -42,8 +42,8 @@ Eigen::Matrix2f DistanceField::computeHessianAtPoint(
     const std::vector<int>& neighbors_ids)
 {
     // 根据中心差分估算偏导数
-    int delta_x     = 1;
-    int delta_y     = 1;
+    int delta_x     = 3;
+    int delta_y     = 3;
     auto& right     = distance_field->points[neighbors_ids[0]];
     auto& left      = distance_field->points[neighbors_ids[1]];
     auto& up        = distance_field->points[neighbors_ids[2]];
@@ -125,7 +125,7 @@ void DistanceField::detectKeypoints(
             getNeighborsIds(index, neighbors_ids);
             bool islocalMaximum{true};
             for (auto& neighbor_id : neighbors_ids) {
-                if (sdf_curvature->points[index].intensity <
+                if (sdf_curvature->points[index].intensity <=
                     sdf_curvature->points[neighbor_id].intensity) {
                     islocalMaximum = false;
                     break;
