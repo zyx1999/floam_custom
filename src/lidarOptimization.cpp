@@ -96,7 +96,9 @@ bool SDFAnalyticCostFunction::Evaluate(double const* const* parameters,
     Eigen::Map<const Eigen::Quaterniond> q_w_curr(parameters[0]);
     Eigen::Map<const Eigen::Vector3d> t_w_curr(parameters[0] + 4);
     Eigen::Vector3d point_w = q_w_curr * curr_point + t_w_curr;
-    residuals[0] = (point_w - last_point).norm();
+    // error = |p - Tp'|^2
+    double error = (last_point - point_w).norm();
+    residuals[0] = error*error;
     if (jacobians != NULL) {
         if (jacobians[0] != NULL) {
             Eigen::Matrix3d skew_point_w = skew(point_w);
@@ -106,11 +108,7 @@ bool SDFAnalyticCostFunction::Evaluate(double const* const* parameters,
             Eigen::Map<Eigen::Matrix<double, 1, 7, Eigen::RowMajor>> J_se3(
                 jacobians[0]);
             J_se3.setZero();
-
-            // 根据残差对SE3参数的偏导数计算雅可比矩阵
-            Eigen::Vector3d residual = point_w - last_point;
-            J_se3.block<1, 3>(0, 0) = -residual.transpose() * dp_by_se3.block<3, 3>(0, 0);
-            J_se3.block<1, 3>(0, 3) = -residual.transpose() * dp_by_se3.block<3, 3>(0, 3);
+            J_se3.block<1, 6>(0, 0) = 2*(point_w - last_point).transpose() * dp_by_se3;
         }
     }
     return true;

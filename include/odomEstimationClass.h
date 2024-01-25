@@ -90,10 +90,12 @@ class OdomEstimationClass {
     /// @brief kd-tree
     pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeEdgeMap;
     pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeSurfMap;
+    pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeSDFMap;
 
     /// @brief points downsampling before add to map
     pcl::VoxelGrid<pcl::PointXYZI> downSizeFilterEdge;
     pcl::VoxelGrid<pcl::PointXYZI> downSizeFilterSurf;
+    pcl::VoxelGrid<pcl::PointXYZI> downSizeFilterSDF;
 
     /// @brief 局部地图，剪裁盒滤波用于剪裁点云数据，只保留特定区域的点
     pcl::CropBox<pcl::PointXYZI> cropBoxFilter;

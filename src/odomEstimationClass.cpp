@@ -24,6 +24,8 @@ void OdomEstimationClass::init(lidar::Lidar lidar_param, double map_resolution)
         new pcl::KdTreeFLANN<pcl::PointXYZI>());
     kdtreeSurfMap = pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr(
         new pcl::KdTreeFLANN<pcl::PointXYZI>());
+    kdtreeSDFMap = pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr(
+        new pcl::KdTreeFLANN<pcl::PointXYZI>());
 
     odom               = Eigen::Isometry3d::Identity();
     last_odom          = Eigen::Isometry3d::Identity();
@@ -72,6 +74,7 @@ void OdomEstimationClass::updatePointsToMap(
         // KD树设置目标点云
         kdtreeEdgeMap->setInputCloud(laserCloudCornerMap);
         kdtreeSurfMap->setInputCloud(laserCloudSurfMap);
+        kdtreeSDFMap->setInputCloud(sdfKeyPointsMap);
         // 非线性优化求解
         for (int iterCount = 0; iterCount < optimization_count; iterCount++) {
             ceres::LossFunction* loss_function = new ceres::HuberLoss(0.1);
@@ -193,6 +196,8 @@ void OdomEstimationClass::addEdgeCostFactor(
                 */
                 ceres::CostFunction* cost_function =
                     new EdgeAnalyticCostFunction(curr_point, point_a, point_b);
+                // ceres::CostFunction* cost_function =
+                // new SDFAnalyticCostFunction(curr_point, center);
                 // 将残差块加入problem
                 problem.AddResidualBlock(cost_function, loss_function,
                                          parameters);
@@ -277,13 +282,35 @@ void OdomEstimationClass::addSDFKPCostFactor(
     for (int i = 0; i < (int)pc_in->points.size(); i++) {
         pcl::PointXYZI point_temp;
         pointAssociateToMap(&(pc_in->points[i]), &point_temp);
-        Eigen::Vector3d curr_point(pc_in->points[i].x, pc_in->points[i].y,
-                                   pc_in->points[i].z);
-        Eigen::Vector3d last_point(point_temp.x, point_temp.y, point_temp.z);
-        ceres::CostFunction* cost_function =
-            new SDFAnalyticCostFunction(curr_point, last_point);
-        problem.AddResidualBlock(cost_function, loss_function, parameters);
-        kpts_num++;
+
+        std::vector<int> pointSearchInd;
+        std::vector<float> pointSearchSqDis;
+        // 从全局特征点云中寻找与当前点（新帧）最近的5个点，并返回索引与距离（按平方距离升序排列）
+        kdtreeSDFMap->nearestKSearch(point_temp, 5, pointSearchInd,
+                                     pointSearchSqDis);
+        // 最远的邻域点满足阈值(1.0)，则认为邻域点足够近
+        if (pointSearchSqDis[4] < 1.0) {
+            std::vector<Eigen::Vector3d> nearCorners;
+            Eigen::Vector3d center(0, 0, 0);
+            for (int j = 0; j < 5; j++) {
+                Eigen::Vector3d tmp(map_in->points[pointSearchInd[j]].x,
+                                    map_in->points[pointSearchInd[j]].y,
+                                    map_in->points[pointSearchInd[j]].z);
+                center = center + tmp;
+                nearCorners.push_back(tmp);
+            }
+            // 计算邻域点的几何中心
+            center = center / 5.0;
+            Eigen::Vector3d curr_point(pc_in->points[i].x, pc_in->points[i].y,
+                                       pc_in->points[i].z);
+            ceres::CostFunction* cost_function =
+                new SDFAnalyticCostFunction(curr_point, center);
+            problem.AddResidualBlock(cost_function, loss_function, parameters);
+            kpts_num++;
+        }
+    }
+    if (kpts_num < 20) {
+        printf("not enough correct points");
     }
 }
 
@@ -304,7 +331,7 @@ void OdomEstimationClass::addPointsToMap(
         laserCloudSurfMap->push_back(point_temp);
     }
 
-    for (int i = 0; i < (int)sdfkptsCloud->points.size(); i++){
+    for (int i = 0; i < (int)sdfkptsCloud->points.size(); i++) {
         pcl::PointXYZI point_temp;
         pointAssociateToMap(&sdfkptsCloud->points[i], &point_temp);
         sdfKeyPointsMap->push_back(point_temp);

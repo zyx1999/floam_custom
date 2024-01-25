@@ -151,6 +151,14 @@ void odom_estimation()
             br.sendTransform(tf::StampedTransform(transform, ros::Time::now(),
                                                   "map", "base_link"));
 
+            // 获取旋转矩阵和平移向量
+            Eigen::Matrix3d rotation_matrix    = odomEstimation.odom.rotation();
+            Eigen::Vector3d translation_vector = odomEstimation.odom.translation();
+            // 输出旋转矩阵和平移向量
+            ROS_INFO_STREAM("Rotation Matrix:\n" << rotation_matrix);
+            ROS_INFO_STREAM(
+                "Translation Vector: " << translation_vector.transpose());
+
             // 发布里程计数据
             nav_msgs::Odometry laserOdometry;
             laserOdometry.header.frame_id         = "map";
