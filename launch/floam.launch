@@ -2,7 +2,7 @@
 <launch>
     <!-- 2011_09_26/2011_09_26_drive_0029_sync/testbag.bag -->
     <!-- [05] 2011_09_30/2011_09_30_drive_0018_sync/testbag.bag -->
-    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock -r 0.1 $(env HOME)/Downloads/kitti-raw/2011_09_30/2011_09_30_drive_0018_sync/testbag.bag"/>
+    <node pkg="rosbag" type="play" name="rosbag_play" args="--clock -r 0.2 $(env HOME)/Downloads/kitti-raw/2011_09_30/2011_09_30_drive_0018_sync/testbag.bag"/>
 
     <!-- For Velodyne VLP-16 
     <param name="scan_line" value="16" />
@@ -26,7 +26,7 @@
     <param name="threshold_width" value = "15" />
     <param name="sdf_x_bound" value = "60" />
     <param name="sdf_y_bound" value = "40" />
-    <param name="sdf_z_lower" value = "-1" />
+    <param name="sdf_z_lower" value = "-2" />
 
     <param name="sdf_resolution" value = "1" />
     <param name="useFilteredGroundPoints" value="false" />
