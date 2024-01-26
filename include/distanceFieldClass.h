@@ -31,8 +31,8 @@ class DistanceField {
                     pcl::PointCloud<pcl::PointXYZI>::Ptr& sdf_keypoints);
 
     void
-    computeDistanceField(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud,
-                         pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field);
+    ComputeSignedDistanceField(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud,
+                         pcl::PointCloud<pcl::PointXYZI>::Ptr& signed_distance_field);
 
   private:
     pcl::PointCloud<pcl::PointXYZI>::Ptr distance_field_;

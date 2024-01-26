@@ -58,6 +58,49 @@ float sdf_z_lower      = -5;
 float sdf_resolution   = 1;  // 体素网格的分辨率
 bool useFilteredGroundPoints{false};
 
+// void ComputeSignedDistanceField(
+//     const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
+//     pcl::PointCloud<pcl::PointXYZI>::Ptr& signed_distance_field)
+// {
+//     // Get pointcloud size
+//     int pointPerRow = 2 * sdf_y_bound / sdf_resolution + 1;
+//     int pointPerCol = 2 * sdf_x_bound / sdf_resolution + 1;
+//     std::array<int, 2> size{pointPerRow, pointPerCol};
+//     planning::GridMap2D<uint8_t> grid_map;
+//     grid_map.set_cell_number(size);
+//     ROS_INFO("Size of grid_map: [%d, %d]", pointPerRow, pointPerCol);
+//     grid_map.set_resolution(std::array<double, 2>{1, 1});
+//     // fill specify z into grid_map
+//     for (int i = 0; i < (int)cloud_in->points.size(); ++i) {
+//         float ptx = cloud_in->points[i].x;
+//         float pty = cloud_in->points[i].y;
+//         float ptz = cloud_in->points[i].z;
+//         // filter pointcloud with sdf boundary
+//         if (ptx > -sdf_x_bound && ptx < sdf_x_bound && pty > -sdf_y_bound &&
+//             pty < sdf_y_bound && ptz > sdf_z_lower &&
+//             ptz < sdf_z_lower + sdf_resolution) {
+//             int x = pty + pointPerRow / 2;
+//             int y = ptx + pointPerCol / 2;
+//             grid_map.SetValue(Eigen::Vector2i(x, y), 1);
+//         }
+//     }
+//     planning::SignedDistanceField2D sdf(std::move(grid_map));
+//     sdf.UpdateSDF();
+//     auto sdf_data = sdf.esdf().data();
+//     // convert esdf into pointcloud
+//     for (int address = 0; address < (int)sdf_data.size(); address++) {
+//         // address to index
+//         int x = address % pointPerRow;
+//         int y = address / pointPerRow;
+//         pcl::PointXYZI point;
+//         point.x         = y - pointPerCol / 2;
+//         point.y         = x - pointPerRow / 2;
+//         point.z         = (2 * sdf_z_lower + sdf_resolution) / 2;
+//         point.intensity = sdf_data[address];
+//         signed_distance_field->push_back(point);
+//     }
+// }
+
 void laser_processing()
 {
     while (1) {
@@ -86,17 +129,15 @@ void laser_processing()
 
             std::chrono::time_point<std::chrono::system_clock> start_0, end_0;
             start_0 = std::chrono::system_clock::now();
-            DistanceField df(sdf_x_bound, sdf_y_bound, sdf_z_lower,
-                             threshold_height, sdf_resolution);
-            // 计算3D SDF
             pcl::PointCloud<pcl::PointXYZI>::Ptr distance_field(
                 new pcl::PointCloud<pcl::PointXYZI>());
             pcl::PointCloud<pcl::PointXYZI>::Ptr sdf_keypoints(
                 new pcl::PointCloud<pcl::PointXYZI>());
-            df.computeDistanceField(pointcloud_fg, distance_field);
+            // 计算2D SDF
+            DistanceField df(sdf_x_bound, sdf_y_bound, sdf_z_lower,
+                             threshold_height, sdf_resolution);
+            df.ComputeSignedDistanceField(pointcloud_in, distance_field);
             df.detectKeypoints(distance_field, sdf_keypoints);
-            // ROS_INFO("Height=%d  Width=%d", distance_field->height,
-            //          distance_field->width);
             end_0 = std::chrono::system_clock::now();
             std::chrono::duration<float> elapsed_seconds_0 = end_0 - start_0;
             float time_temp_0 = elapsed_seconds_0.count() * 1000;
