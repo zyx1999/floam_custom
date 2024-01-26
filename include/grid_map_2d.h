@@ -7,16 +7,15 @@
 
 #pragma once
 
-
-#include <array>
-#include <vector>
-#include <iostream>
 #include <Eigen/Dense>
+#include <array>
 #include <glog/logging.h>
+#include <iostream>
 #include <opencv2/core/core.hpp>
-#include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <vector>
 
 template <typename T>
 using vector_Eigen   = std::vector<T, Eigen::aligned_allocator<T>>;
@@ -367,6 +366,10 @@ inline double GridMap2D<T>::GetValueBilinear(const Eigen::Vector2d& coord,
     return (1 - diff(1)) * y0 + diff(1) * y1;
 }
 
+/// @brief Set value
+/// @tparam T
+/// @param index index[0] = x-axis, index[1] = y-axis
+/// @param value 1 for occupied, 0 for free
 template <typename T>
 inline void GridMap2D<T>::SetValue(const Eigen::Vector2i& index, const T value)
 {
