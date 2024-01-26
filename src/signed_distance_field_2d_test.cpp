@@ -18,11 +18,33 @@ void TestSignedDistance();
 void TestSignedPolyLines();
 void TestSignedGradient();
 
+void TestFillPoints(){
+  int xlength, ylength;
+  xlength = 900;
+  ylength = 500;
+  std::array<int, 2> size{xlength, ylength};
+  GridMap2D<uint8_t> grid_map;
+  grid_map.set_cell_number(size);
+  grid_map.set_resolution(std::array<double,2>{1, 1});
+  // convert pcl cords into GridMap2D cords
+  for(int i = 0; i < 100; ++i){
+    grid_map.SetValue(Eigen::Vector2i(i, i+20), 1);
+  }
+  cv::imshow("custom grid_map", grid_map.BinaryImage());
+  SignedDistanceField2D sdf(std::move(grid_map));
+  sdf.UpdateSDF();
+  auto esdf = sdf.esdf();
+  cout << esdf.Matrix() << endl;
+  cv::imshow("custom sdf", sdf.esdf().ImageSec());
+  cv::waitKey(0);
+}
+
 int main(int argc, char const *argv[]) {
-  TestBasic();
-  TestSignedDistance();
-  TestSignedPolyLines();
-  TestSignedGradient();
+  TestFillPoints();
+  // TestBasic();
+  // TestSignedDistance();
+  // TestSignedPolyLines();
+  // TestSignedGradient();
   return 0;
 }
 
