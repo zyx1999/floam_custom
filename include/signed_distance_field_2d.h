@@ -37,7 +37,7 @@ class SignedDistanceField2D {
  public:
   SignedDistanceField2D(std::array<double, 2> origin, std::array<int, 2> dim,
                         const double map_resolution);
-  SignedDistanceField2D(OccupancyMap&& occupancy_map);
+  SignedDistanceField2D(OccupancyMap&& occupancy_map);  
   ~SignedDistanceField2D() = default;
 
   inline void set_origin(std::array<double, 2> origin);
