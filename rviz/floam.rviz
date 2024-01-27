@@ -105,9 +105,9 @@ Visualization Manager:
       Queue Size: 100
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.5
+      Size (m): 0.10000000149011612
       Style: Squares
-      Topic: /sdf_keypoints
+      Topic: /distance_field
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -187,7 +187,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -1.5749995708465576
+      Angle: -1.559999704360962
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
@@ -197,10 +197,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 8.118144989013672
+      Scale: 8.800000190734863
       Target Frame: body
-      X: 5.521259784698486
-      Y: -5.79132604598999
+      X: -2.377547264099121
+      Y: -3.398221492767334
     Saved: ~
 Window Geometry:
   Displays:
