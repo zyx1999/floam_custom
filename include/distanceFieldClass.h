@@ -29,7 +29,9 @@ class DistanceField {
     {
     }
     void getSDFPointCloud(
-        pcl::PointCloud<pcl::PointXYZI>::Ptr& signed_distance_field, float sdfmin, float sdfmax);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr& signed_distance_field,
+        float sdfmin,
+        float sdfmax);
     void
     detectKeypoints(const pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field,
                     pcl::PointCloud<pcl::PointXYZI>::Ptr& sdf_keypoints);
