@@ -19,10 +19,13 @@
 #include <tf/transform_datatypes.h>
 
 // pcl lib
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/passthrough.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
 #include <pcl_conversions/pcl_conversions.h>
 
 // local lib
@@ -48,41 +51,104 @@ void velodyneHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     pointCloudBuf.push(laserCloudMsg);
 }
 
-double total_time      = 0;
-int total_frame        = 0;
-float threshold_height = -1.73;
-float threshold_width  = 40;
-float sdf_x_bound      = 10;
-float sdf_y_bound      = 10;
-float sdf_z_lower      = -5;
-float sdf_resolution   = 1;  // 体素网格的分辨率
+double total_time    = 0;
+int total_frame      = 0;
+float cloud_filter_x = 40;
+float cloud_filter_y = 40;
+float cloud_filter_z = -1.73;
+float sdf_x_bound    = 10;
+float sdf_y_bound    = 10;
+float sdf_z_lower    = -5;
+float sdf_resolution = 1;  // 体素网格的分辨率
 bool useFilteredGroundPoints{false};
+// sdfmin sdfmax: filter sdf with value in [sdfmin, sdfmax]
+float sdfmin = 0;
+float sdfmax = 10;
+
+void groundFilter(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
+                  pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_out)
+{
+    pcl::PassThrough<pcl::PointXYZI> pass;
+    pass.setInputCloud(cloud_in);
+    pass.setFilterFieldName("x");
+    pass.setFilterLimits(-cloud_filter_x, cloud_filter_x);
+    pass.filter(*cloud_out);
+
+    pass.setInputCloud(cloud_out);
+    pass.setFilterFieldName("y");
+    pass.setFilterLimits(-cloud_filter_y, cloud_filter_y);
+    pass.filter(*cloud_out);
+
+    pass.setInputCloud(cloud_out);
+    pass.setFilterFieldName("z");
+    pass.setFilterLimits(-10, cloud_filter_z);
+    pass.filter(*cloud_out);
+
+    pass.setInputCloud(cloud_out);
+    pass.setFilterFieldName("intensity");
+    pass.setFilterLimits(0.35, 0.45);
+    pass.filter(*cloud_out);
+}
+
+void segPlane(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
+              pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_plane_out)
+{
+    // 创建用于平面分割的 SACSegmentation 对象
+    pcl::SACSegmentation<pcl::PointXYZI> seg;
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+
+    // 设置分割模型为平面模型
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setMaxIterations(1000);
+    seg.setDistanceThreshold(0.01);  // 设置到模型的距离阈值
+
+    // 输入点云
+    seg.setInputCloud(cloud_in);
+    // 执行分割
+    seg.segment(*inliers, *coefficients);
+
+    if (inliers->indices.empty()) {
+        std::cerr << "Could not estimate a planar model for the given dataset."
+                  << std::endl;
+        return;
+    }
+
+    // 提取分割出的平面
+    pcl::ExtractIndices<pcl::PointXYZI> extract;
+    extract.setInputCloud(cloud_in);
+    extract.setIndices(inliers);
+    extract.setNegative(false);  // 如果设置为 true，则提取除平面外的所有点
+
+    // 获取平面点云
+    extract.filter(*cloud_plane_out);
+}
 
 void laser_processing()
 {
     while (1) {
         if (!pointCloudBuf.empty()) {
             // read data
-            pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_in(
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_in(
                 new pcl::PointCloud<pcl::PointXYZI>());
             ros::Time pointcloud_time;
             {
                 std::lock_guard<std::mutex> lock(mutex_lock);
-                pcl::fromROSMsg(*pointCloudBuf.front(), *pointcloud_in);
+                pcl::fromROSMsg(*pointCloudBuf.front(), *cloud_in);
                 pointcloud_time = (pointCloudBuf.front())->header.stamp;
                 pointCloudBuf.pop();
             }
             /*  在featureExtraction()前过滤出地面点云，发布一个新话题用于Debug。
                 rage X in(-80, 80), Y in(-80, 80), Z in(-25, 3) */
-            pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud_fg(
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filterground(
                 new pcl::PointCloud<pcl::PointXYZI>());
-            for (int i = 0; i < (int)pointcloud_in->points.size(); i++) {
-                if (pointcloud_in->points[i].z < threshold_height &&
-                    pointcloud_in->points[i].y < threshold_width &&
-                    pointcloud_in->points[i].y > -threshold_width) {
-                    pointcloud_fg->push_back(pointcloud_in->points[i]);
-                }
-            }
+
+            groundFilter(cloud_in, cloud_filterground);
+
+            // pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_plane(
+            //     new pcl::PointCloud<pcl::PointXYZI>());
+            // segPlane(cloud_filterground, cloud_plane);
 
             std::chrono::time_point<std::chrono::system_clock> start_0, end_0;
             start_0 = std::chrono::system_clock::now();
@@ -92,12 +158,12 @@ void laser_processing()
                 new pcl::PointCloud<pcl::PointXYZI>());
             // 计算2D SDF
             DistanceField df(sdf_x_bound, sdf_y_bound, sdf_z_lower,
-                             threshold_height, sdf_resolution);
-            df.computeSignedDistanceField(pointcloud_in);
-            df.getSDFPointCloud(distance_field);
-            df.detectKeypoints(distance_field, sdf_keypoints);
-            ROS_INFO("Num of kps: %d", sdf_keypoints->size());
-            // df.keypointDetection(sdf_keypoints);
+                             cloud_filter_z, sdf_resolution);
+            df.computeSignedDistanceField(cloud_filterground);
+            df.getSDFPointCloud(distance_field, sdfmin, sdfmax);
+            sdf_keypoints = distance_field;
+            // df.detectKeypoints(distance_field, sdf_keypoints);
+            ROS_INFO("Num of kps: %ld", sdf_keypoints->size());
             end_0 = std::chrono::system_clock::now();
             std::chrono::duration<float> elapsed_seconds_0 = end_0 - start_0;
             float time_temp_0 = elapsed_seconds_0.count() * 1000;
@@ -111,13 +177,13 @@ void laser_processing()
             std::chrono::time_point<std::chrono::system_clock> start, end;
             start = std::chrono::system_clock::now();
             if (useFilteredGroundPoints) {
-                ROS_INFO("Using Filtered Points");
+                ROS_INFO("Using SDF Points");
                 laserProcessing.featureExtraction(
-                    pointcloud_fg, pointcloud_edge, pointcloud_surf);
+                    distance_field, pointcloud_edge, pointcloud_surf);
             }
             else {
                 laserProcessing.featureExtraction(
-                    pointcloud_in, pointcloud_edge, pointcloud_surf);
+                    cloud_in, pointcloud_edge, pointcloud_surf);
             }
             end = std::chrono::system_clock::now();
             std::chrono::duration<float> elapsed_seconds = end - start;
@@ -150,13 +216,13 @@ void laser_processing()
             pubSurfPoints.publish(surfPointsMsg);
 
             sensor_msgs::PointCloud2 filteredGroundPointsMsg;
-            pcl::toROSMsg(*pointcloud_fg, filteredGroundPointsMsg);
+            pcl::toROSMsg(*cloud_filterground, filteredGroundPointsMsg);
             filteredGroundPointsMsg.header.stamp    = pointcloud_time;
             filteredGroundPointsMsg.header.frame_id = "base_link";
             pubFilteredGroundDebug.publish(filteredGroundPointsMsg);
             ROS_INFO("Before: {%ld}   <===>   After {%ld}",
-                     pointcloud_in->points.size(),
-                     pointcloud_fg->points.size());
+                     cloud_in->points.size(),
+                     cloud_filterground->points.size());
 
             sensor_msgs::PointCloud2 distanceFieldMsg;
             pcl::toROSMsg(*distance_field, distanceFieldMsg);
@@ -202,13 +268,16 @@ int main(int argc, char** argv)
     nh.getParam("/max_dis", max_dis);
     nh.getParam("/min_dis", min_dis);
     nh.getParam("/scan_line", scan_line);
-    nh.getParam("/threshold_height", threshold_height);
-    nh.getParam("/threshold_width", threshold_width);
+    nh.getParam("/cloud_filter_x", cloud_filter_x);
+    nh.getParam("/cloud_filter_y", cloud_filter_y);
+    nh.getParam("/cloud_filter_z", cloud_filter_z);
     nh.getParam("/sdf_x_bound", sdf_x_bound);
     nh.getParam("/sdf_y_bound", sdf_y_bound);
     nh.getParam("/sdf_z_lower", sdf_z_lower);
     nh.getParam("/sdf_resolution", sdf_resolution);
     nh.getParam("/useFilteredGroundPoints", useFilteredGroundPoints);
+    nh.getParam("/sdfmin", sdfmin);
+    nh.getParam("/sdfmax", sdfmax);
 
     lidar_param.setScanPeriod(scan_period);
     lidar_param.setVerticalAngle(vertical_angle);
