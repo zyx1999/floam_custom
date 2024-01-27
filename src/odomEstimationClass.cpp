@@ -83,12 +83,12 @@ void OdomEstimationClass::updatePointsToMap(
             // 设置优化参数
             problem.AddParameterBlock(parameters, 7,
                                       new PoseSE3Parameterization());
-            addEdgeCostFactor(downsampledEdgeCloud, laserCloudCornerMap,
-                              problem, loss_function);
-            addSurfCostFactor(downsampledSurfCloud, laserCloudSurfMap, problem,
-                              loss_function);
-            // addSDFKPCostFactor(sdf_kpts_in, sdfKeyPointsMap, problem,
-            //                    loss_function);
+            // addEdgeCostFactor(downsampledEdgeCloud, laserCloudCornerMap,
+            //                   problem, loss_function);
+            // addSurfCostFactor(downsampledSurfCloud, laserCloudSurfMap, problem,
+            //                   loss_function);
+            addSDFKPCostFactor(sdf_kpts_in, sdfKeyPointsMap, problem,
+                               loss_function);
             ceres::Solver::Options options;
             options.linear_solver_type                = ceres::DENSE_QR;
             options.max_num_iterations                = 4;
@@ -155,7 +155,8 @@ void OdomEstimationClass::addEdgeCostFactor(
         // 从全局特征点云中寻找与当前点（新帧）最近的5个点，并返回索引与距离（按平方距离升序排列）
         kdtreeEdgeMap->nearestKSearch(point_temp, 5, pointSearchInd,
                                       pointSearchSqDis);
-        // 最远的邻域点满足阈值(1.0)，则认为邻域点足够近
+        // printf("===> kdtreeEdgeMap: pointSearchSqDis[4]=%.3f\n", pointSearchSqDis[4]);
+        // 最远的邻域点满足阈值(1.0)，则认为邻域点足够近 pointSearchSqDis[4] < 1.0
         if (pointSearchSqDis[4] < 1.0) {
             std::vector<Eigen::Vector3d> nearCorners;
             Eigen::Vector3d center(0, 0, 0);
@@ -206,7 +207,7 @@ void OdomEstimationClass::addEdgeCostFactor(
         }
     }
     if (corner_num < 20) {
-        printf("not enough correct points");
+        printf("not enough correct Corner points: [%d] \n", corner_num);
     }
 }
 
@@ -268,7 +269,7 @@ void OdomEstimationClass::addSurfCostFactor(
         }
     }
     if (surf_num < 20) {
-        printf("not enough correct points");
+        printf("not enough correct Surf points: [%d] \n", surf_num);
     }
 }
 
@@ -286,13 +287,13 @@ void OdomEstimationClass::addSDFKPCostFactor(
         std::vector<int> pointSearchInd;
         std::vector<float> pointSearchSqDis;
         // 从全局特征点云中寻找与当前点（新帧）最近的5个点，并返回索引与距离（按平方距离升序排列）
-        kdtreeSDFMap->nearestKSearch(point_temp, 5, pointSearchInd,
+        kdtreeSDFMap->nearestKSearch(point_temp, 3, pointSearchInd,
                                      pointSearchSqDis);
         // 最远的邻域点满足阈值(1.0)，则认为邻域点足够近
-        if (pointSearchSqDis[4] < 1.0) {
+        if (pointSearchSqDis[2] < 2) {
             std::vector<Eigen::Vector3d> nearCorners;
             Eigen::Vector3d center(0, 0, 0);
-            for (int j = 0; j < 5; j++) {
+            for (int j = 0; j < 3; j++) {
                 Eigen::Vector3d tmp(map_in->points[pointSearchInd[j]].x,
                                     map_in->points[pointSearchInd[j]].y,
                                     map_in->points[pointSearchInd[j]].z);
@@ -300,7 +301,7 @@ void OdomEstimationClass::addSDFKPCostFactor(
                 nearCorners.push_back(tmp);
             }
             // 计算邻域点的几何中心
-            center = center / 5.0;
+            center = center / 3.0;
             Eigen::Vector3d curr_point(pc_in->points[i].x, pc_in->points[i].y,
                                        pc_in->points[i].z);
             ceres::CostFunction* cost_function =
@@ -310,7 +311,7 @@ void OdomEstimationClass::addSDFKPCostFactor(
         }
     }
     if (kpts_num < 20) {
-        printf("not enough correct points");
+        printf("not enough correct SDF points: [%d] \n", kpts_num);
     }
 }
 
