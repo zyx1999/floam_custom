@@ -23,19 +23,24 @@ std::vector<double> DistanceField::mat2GridMap(const cv::Mat& mat_in)
 
 void DistanceField::gridMap2PointCloud(
     const std::vector<double>& gridmap,
+    float sdfmin,
+    float sdfmax,
     pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_out)
 {
     // auto& sdf_data = sdf_ptr_->esdf().data();
     for (int address = 0; address < (int)gridmap.size(); address++) {
-        // address to index
-        int x = address % pointPerRow_;
-        int y = address / pointPerRow_;
-        pcl::PointXYZI point;
-        point.x         = y - pointPerCol_ / 2;
-        point.y         = x - pointPerRow_ / 2;
-        point.z         = (2 * sdf_z_lower_ + sdf_resolution_) / 2;
-        point.intensity = gridmap[address];
-        cloud_out->push_back(point);
+        if (gridmap[address] >= sdfmin && gridmap[address] <= sdfmax) {
+            // address to index
+            int x = address % pointPerRow_;
+            int y = address / pointPerRow_;
+            pcl::PointXYZI point;
+            point.x = y - pointPerCol_ / 2;
+            point.y = x - pointPerRow_ / 2;
+            point.z = (2 * sdf_z_lower_ + sdf_resolution_) / 2;
+            // debuging
+            point.intensity = gridmap[address];
+            cloud_out->push_back(point);
+        }
     }
 }
 void DistanceField::cvpt2PointCloud(
@@ -77,8 +82,9 @@ void DistanceField::keypointDetection(
     // cvpt2PointCloud(extrema_points, cloud_out, 1);
     classify_extrema_points(extrema_points, eigen_1, eigen_2,
                             classified_extrema_points);
-    for(int i = 0; i < 4; i++){
-        std::cout<<"Class ["<<i<<"] = "<<classified_extrema_points[i].size()<<std::endl;
+    for (int i = 0; i < 4; i++) {
+        std::cout << "Class [" << i
+                  << "] = " << classified_extrema_points[i].size() << std::endl;
     }
     cvpt2PointCloud(classified_extrema_points[1], cloud_out, 1);
     // gridMap2PointCloud(mat2GridMap(doh), cloud_out);
@@ -203,10 +209,10 @@ void DistanceField::detectGaussianCurvatureAndEigen(const cv::Mat& src,
 }
 
 void DistanceField::getSDFPointCloud(
-    pcl::PointCloud<pcl::PointXYZI>::Ptr& signed_distance_field)
+    pcl::PointCloud<pcl::PointXYZI>::Ptr& signed_distance_field, float sdfmin, float sdfmax)
 {
     auto& sdf_data = sdf_ptr_->esdf().data();
-    gridMap2PointCloud(sdf_data, signed_distance_field);
+    gridMap2PointCloud(sdf_data, sdfmin, sdfmax, signed_distance_field);
 }
 
 void DistanceField::computeSignedDistanceField(

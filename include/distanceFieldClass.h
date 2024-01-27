@@ -29,7 +29,7 @@ class DistanceField {
     {
     }
     void getSDFPointCloud(
-        pcl::PointCloud<pcl::PointXYZI>::Ptr& signed_distance_field);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr& signed_distance_field, float sdfmin, float sdfmax);
     void
     detectKeypoints(const pcl::PointCloud<pcl::PointXYZI>::Ptr& distance_field,
                     pcl::PointCloud<pcl::PointXYZI>::Ptr& sdf_keypoints);
@@ -43,6 +43,8 @@ class DistanceField {
                                          cv::Mat& dst_eigenvalue1,
                                          cv::Mat& dst_eigenvalue2);
     void gridMap2PointCloud(const std::vector<double>& gridmap,
+                            float sdfmin,
+                            float sdfmax,
                             pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_out);
     std::vector<double> mat2GridMap(const cv::Mat& mat_in);
     void toMat(cv::Mat& mat_out);
@@ -56,7 +58,8 @@ class DistanceField {
                             std::vector<std::vector<cv::Point>>& dst);
 
     void cvpt2PointCloud(const std::vector<cv::Point>& points,
-                         pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_out, float z_val);
+                         pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_out,
+                         float z_val);
 
   private:
     pcl::PointCloud<pcl::PointXYZI>::Ptr distance_field_;
