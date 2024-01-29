@@ -28,16 +28,21 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+// cv
+#include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.h>
+
 // local lib
 #include "distanceFieldClass.h"
 #include "laserProcessingClass.h"
 #include "lidar.h"
 
-LaserProcessingClass laserProcessing;
 std::mutex mutex_lock;
-std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudBuf;
 lidar::Lidar lidar_param;
+LaserProcessingClass laserProcessing;
+std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudBuf;
 
+// ros publisher
 ros::Publisher pubFilteredGroundDebug;
 ros::Publisher pubDistanceField;
 ros::Publisher pubEdgePoints;
@@ -53,6 +58,8 @@ void velodyneHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 
 double total_time    = 0;
 int total_frame      = 0;
+
+// load from rosparam
 float cloud_filter_x = 40;
 float cloud_filter_y = 40;
 float cloud_filter_z = -1.73;
@@ -133,12 +140,12 @@ void laser_processing()
             pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_in(
                 new pcl::PointCloud<pcl::PointXYZI>());
             ros::Time pointcloud_time;
-            {
-                std::lock_guard<std::mutex> lock(mutex_lock);
-                pcl::fromROSMsg(*pointCloudBuf.front(), *cloud_in);
-                pointcloud_time = (pointCloudBuf.front())->header.stamp;
-                pointCloudBuf.pop();
-            }
+            mutex_lock.lock();
+            pcl::fromROSMsg(*pointCloudBuf.front(), *cloud_in);
+            pointcloud_time = (pointCloudBuf.front())->header.stamp;
+            pointCloudBuf.pop();
+            mutex_lock.unlock();
+
             /*  在featureExtraction()前过滤出地面点云，发布一个新话题用于Debug。
                 rage X in(-80, 80), Y in(-80, 80), Z in(-25, 3) */
             pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filterground(
@@ -182,8 +189,8 @@ void laser_processing()
                     distance_field, pointcloud_edge, pointcloud_surf);
             }
             else {
-                laserProcessing.featureExtraction(
-                    cloud_in, pointcloud_edge, pointcloud_surf);
+                laserProcessing.featureExtraction(cloud_in, pointcloud_edge,
+                                                  pointcloud_surf);
             }
             end = std::chrono::system_clock::now();
             std::chrono::duration<float> elapsed_seconds = end - start;
