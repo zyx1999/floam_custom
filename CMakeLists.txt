@@ -42,7 +42,7 @@ endif()
 find_package(PCL REQUIRED)
 find_package(Ceres REQUIRED)
 # for signed_distance_field
-find_package(OpenCV REQUIRED)
+find_package(OpenCV 4 REQUIRED)
 
 include_directories(
   include

@@ -7,14 +7,14 @@
 
 int main()
 {
-    Eigen::Matrix<float, 3, 4> P2;
-    P2 << 7.215377000000e+02, 0.000000000000e+00, 6.095593000000e+02,
+    Eigen::Matrix<float, 3, 4> P_rect_2;
+    P_rect_2 << 7.215377000000e+02, 0.000000000000e+00, 6.095593000000e+02,
         4.485728000000e+01, 0.000000000000e+00, 7.215377000000e+02,
         1.728540000000e+02, 2.163791000000e-01, 0.000000000000e+00,
         0.000000000000e+00, 1.000000000000e+00, 2.745884000000e-03;
 
-    Eigen::Matrix4f R0_rect;
-    R0_rect << 9.999239000000e-01, 9.837760000000e-03, -7.445048000000e-03,
+    Eigen::Matrix4f R_rect_0;
+    R_rect_0 << 9.999239000000e-01, 9.837760000000e-03, -7.445048000000e-03,
         0.000000000000e+00, -9.869795000000e-03, 9.999421000000e-01,
         -4.278459000000e-03, 0.000000000000e+00, 7.402527000000e-03,
         4.351614000000e-03, 9.999631000000e-01, 0.000000000000e+00,
@@ -29,13 +29,15 @@ int main()
         -2.717806000000e-01, 0.000000000000e+00, 0.000000000000e+00,
         0.000000000000e+00, 1.000000000000e+00;
     // 读取图像
+    // std::string imgName = "/home/yuxuanzhao/Desktop/kitti-velo2cam/data_object_image_2/testing/image_2/000007.png"
+    std::string imgName = "/home/yuxuanzhao/Downloads/kitti-raw/2011_09_26/2011_09_26_drive_0029_sync/image_02/data/0000000123.png";
     cv::Mat image =
-        cv::imread("/home/yuxuanzhao/Desktop/kitti-velo2cam/"
-                   "data_object_image_2/testing/image_2/000007.png");
+        cv::imread(imgName);
     int IMG_H              = image.rows;
     int IMG_W              = image.cols;
-    std::string pointcloud = "/home/yuxuanzhao/Desktop/kitti-velo2cam/"
-                             "data_object_velodyne/testing/velodyne/000007.bin";
+    // std::string pointcloud = "/home/yuxuanzhao/Desktop/kitti-velo2cam/"
+    //                          "data_object_velodyne/testing/velodyne/000007.bin";
+    std::string pointcloud = "/home/yuxuanzhao/Downloads/kitti-raw/2011_09_26/2011_09_26_drive_0029_sync/velodyne_points/data/0000000123.bin";
     // 打开文件
     std::ifstream file(pointcloud, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
@@ -79,8 +81,8 @@ int main()
         velo_filtered.col(i) = velo.col(indices[i]);
     }
 
-    // 计算矩阵乘积
-    Eigen::MatrixXf cam = P2 * R0_rect * Tr_velo_to_cam * velo_filtered;
+    // 计算矩阵乘积 Y = P_rect_2 * R_rect_0 * T_v2c * X
+    Eigen::MatrixXf cam = P_rect_2 * R_rect_0 * Tr_velo_to_cam * velo_filtered;
     // 处理点并绘制
     for (int i = 0; i < cam.cols(); ++i) {
         // 归一化 u 和 v
@@ -100,6 +102,8 @@ int main()
     std::chrono::duration<float> elapsed_seconds_0 = end_0 - start_0;
     float time_temp_0 = elapsed_seconds_0.count() * 1000;
     printf("processing time {%f} ms", time_temp_0);
+    
+    
     // 保存图像
     // cv::imwrite("/home/yuxuanzhao/Desktop/projection_image.png", image);
     // 显示图像
