@@ -16,7 +16,6 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   eigen_conversions
   cv_bridge
-  image_transport
 )
 
 find_package(Eigen3 REQUIRED)
@@ -83,5 +82,5 @@ add_executable(signed_distance_field_2d_test src/signed_distance_field_2d_test.c
 target_link_libraries(signed_distance_field_2d_test  ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES} ${OpenCV_LIBS})
 
 add_executable(testProj src/testProjection.cpp)
-target_link_libraries(testProj ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(testProj ${EIGEN3_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CERES_LIBRARIES} ${OpenCV_LIBS})
 
