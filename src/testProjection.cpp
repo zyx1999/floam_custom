@@ -155,7 +155,7 @@ void imageHandler(const sensor_msgs::ImageConstPtr& imageMsg)
 }
 
 Eigen::MatrixXf
-processPointCloud(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
+projecting(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
                   const Eigen::MatrixXf& P_rect_2,
                   const Eigen::MatrixXf& R_rect_0,
                   const Eigen::MatrixXf& Tr_velo_to_cam)
@@ -167,22 +167,10 @@ processPointCloud(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
         velo(2, i) = cloud_in->points[i].z;
         velo(3, i) = 1.0;  // 齐次坐标
     }
-    // 计算需要保留的点的索引
-    std::vector<int> indices;
-    for (int i = 0; i < velo.cols(); ++i) {
-        if (velo(0, i) >= 0) {
-            indices.push_back(i);
-        }
-    }
-    // 构建新的过滤后的矩阵
-    Eigen::MatrixXf velo_filtered(4, indices.size());
-    for (size_t i = 0; i < indices.size(); ++i) {
-        velo_filtered.col(i) = velo.col(indices[i]);
-    }
 
     // 计算矩阵乘积 Y = P_rect_2 * R_rect_0 * T_v2c * X
-    Eigen::MatrixXf cam = P_rect_2 * R_rect_0 * Tr_velo_to_cam * velo_filtered;
-    return cam;
+    Eigen::MatrixXf y = P_rect_2 * R_rect_0 * Tr_velo_to_cam * velo;
+    return y;
 }
 Eigen::Matrix<float, 3, 4> P_rect_2;
 Eigen::Matrix4f R_rect_0;
@@ -222,15 +210,24 @@ void doProjection()
             imageBuf.pop();
             mutex_lock.unlock();
 
-            Eigen::MatrixXf cam =
-                processPointCloud(cloud_in, P_rect_2, R_rect_0, Tr_velo_to_cam);
+            // filter cloud_in with x>=0
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_positive_x(
+                new pcl::PointCloud<pcl::PointXYZI>());            
+            pcl::PassThrough<pcl::PointXYZI> pass;
+            pass.setInputCloud(cloud_in);
+            pass.setFilterFieldName("x");
+            pass.setFilterLimits(0, 100);
+            pass.filter(*cloud_positive_x);
+
+            Eigen::MatrixXf proj_res =
+                projecting(cloud_positive_x, P_rect_2, R_rect_0, Tr_velo_to_cam);
             ROS_INFO("Projection finished!");
             // 处理点并绘制
-            for (int i = 0; i < cam.cols(); ++i) {
+            for (int i = 0; i < proj_res.cols(); ++i) {
                 // 归一化 u 和 v
-                float u = cam(0, i) / cam(2, i);
-                float v = cam(1, i) / cam(2, i);
-                float z = cam(2, i);
+                float u = proj_res(0, i) / proj_res(2, i);
+                float v = proj_res(1, i) / proj_res(2, i);
+                float z = proj_res(2, i);
 
                 // 过滤掉画布范围外的点
                 if (u >= 0 && u <= IMG_W && v >= 0 && v <= IMG_H && z >= 0) {
