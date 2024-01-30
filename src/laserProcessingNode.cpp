@@ -28,10 +28,6 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-// cv
-#include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
-
 // local lib
 #include "distanceFieldClass.h"
 #include "laserProcessingClass.h"
