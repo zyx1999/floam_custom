@@ -32,7 +32,8 @@
 std::mutex mutex_lock;
 std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudBuf;
 std::queue<sensor_msgs::ImageConstPtr> imageBuf;
-ros::Publisher pub;
+ros::Publisher pubProjection;
+ros::Publisher pubCloudLane;
 void Projection()
 {
     Eigen::Matrix<float, 3, 4> P_rect_2;
@@ -154,11 +155,10 @@ void imageHandler(const sensor_msgs::ImageConstPtr& imageMsg)
     mutex_lock.unlock();
 }
 
-Eigen::MatrixXf
-projecting(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
-                  const Eigen::MatrixXf& P_rect_2,
-                  const Eigen::MatrixXf& R_rect_0,
-                  const Eigen::MatrixXf& Tr_velo_to_cam)
+Eigen::MatrixXf projecting(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
+                           const Eigen::MatrixXf& P_rect_2,
+                           const Eigen::MatrixXf& R_rect_0,
+                           const Eigen::MatrixXf& Tr_velo_to_cam)
 {
     Eigen::MatrixXf velo(4, cloud_in->points.size());
     for (size_t i = 0; i < cloud_in->points.size(); ++i) {
@@ -175,6 +175,7 @@ projecting(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud_in,
 Eigen::Matrix<float, 3, 4> P_rect_2;
 Eigen::Matrix4f R_rect_0;
 Eigen::Matrix4f Tr_velo_to_cam;
+uint8_t LANE_THRESHOLD = 100;
 void doProjection()
 {
     while (1) {
@@ -197,13 +198,16 @@ void doProjection()
                 mutex_lock.unlock();
                 continue;
             }
+
+            ros::Time pointcloud_time;
             pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_in(
                 new pcl::PointCloud<pcl::PointXYZI>());
+            pointcloud_time = (pointCloudBuf.front())->header.stamp;
             pcl::fromROSMsg(*pointCloudBuf.front(), *cloud_in);
             pointCloudBuf.pop();
             cv_bridge::CvImagePtr cv_ptr;
             cv_ptr        = cv_bridge::toCvCopy(*imageBuf.front(),
-                                         sensor_msgs::image_encodings::BGR8);
+                                         sensor_msgs::image_encodings::MONO8);
             cv::Mat image = cv_ptr->image;
             int IMG_H     = image.rows;
             int IMG_W     = image.cols;
@@ -212,16 +216,18 @@ void doProjection()
 
             // filter cloud_in with x>=0
             pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_positive_x(
-                new pcl::PointCloud<pcl::PointXYZI>());            
+                new pcl::PointCloud<pcl::PointXYZI>());
             pcl::PassThrough<pcl::PointXYZI> pass;
             pass.setInputCloud(cloud_in);
             pass.setFilterFieldName("x");
             pass.setFilterLimits(0, 100);
             pass.filter(*cloud_positive_x);
 
-            Eigen::MatrixXf proj_res =
-                projecting(cloud_positive_x, P_rect_2, R_rect_0, Tr_velo_to_cam);
+            Eigen::MatrixXf proj_res = projecting(cloud_positive_x, P_rect_2,
+                                                  R_rect_0, Tr_velo_to_cam);
             ROS_INFO("Projection finished!");
+            pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_on_lane(
+                new pcl::PointCloud<pcl::PointXYZI>());
             // 处理点并绘制
             for (int i = 0; i < proj_res.cols(); ++i) {
                 // 归一化 u 和 v
@@ -230,16 +236,32 @@ void doProjection()
                 float z = proj_res(2, i);
 
                 // 过滤掉画布范围外的点
+                /*
+                    0---------->x(cols, IMG_W)
+                    |
+                    |
+                    y
+                    (rows, IMG_H)
+                */
                 if (u >= 0 && u <= IMG_W && v >= 0 && v <= IMG_H && z >= 0) {
-                    // 根据深度值 z 设置颜色
-                    cv::Scalar color = cv::Scalar(255, 0, 0);  // 红色
-                    cv::circle(image, cv::Point2f(u, v), 2, color, -1);
+                    if (image.at<uint8_t>(cv::Point2f(u, v)) >= LANE_THRESHOLD) {
+                        cv::circle(image, cv::Point2f(u, v), 2, 128, -1);
+                        cloud_on_lane->push_back(cloud_positive_x->points[i]);
+                    }
                 }
             }
-            sensor_msgs::ImagePtr msg =
-                cv_bridge::CvImage(std_msgs::Header(), "bgr8", image)
+            ROS_INFO("Size of Cloud on lane: %ld",
+                     cloud_on_lane->points.size());
+            sensor_msgs::ImagePtr projMsg =
+                cv_bridge::CvImage(std_msgs::Header(), "mono8", image)
                     .toImageMsg();
-            pub.publish(msg);
+            pubProjection.publish(projMsg);
+
+            sensor_msgs::PointCloud2 lanePointsMsg;
+            pcl::toROSMsg(*cloud_on_lane, lanePointsMsg);
+            lanePointsMsg.header.stamp    = pointcloud_time;
+            lanePointsMsg.header.frame_id = "world";
+            pubCloudLane.publish(lanePointsMsg);
         }
         // sleep 2 ms every time
         std::chrono::milliseconds dura(2);
@@ -255,8 +277,9 @@ int main(int argc, char** argv)
     std::vector<float> v_f_P, v_f_R, v_f_Tr;
     nh.param<std::vector<float>>("P_rect_2", v_f_P, std::vector<float>());
     nh.param<std::vector<float>>("R_rect_0", v_f_R, std::vector<float>());
-    nh.param<std::vector<float>>("Tr_velo_to_cam", v_f_Tr, std::vector<float>());
-    
+    nh.param<std::vector<float>>("Tr_velo_to_cam", v_f_Tr,
+                                 std::vector<float>());
+
     P_rect_2 = Eigen::Map<const Eigen::Matrix<float, -1, -1, Eigen::RowMajor>>(
         v_f_P.data(), 3, 4);
     R_rect_0 = Eigen::Map<const Eigen::Matrix<float, -1, -1, Eigen::RowMajor>>(
@@ -269,9 +292,12 @@ int main(int argc, char** argv)
         "/velodyne_points", 100, velodyneHandler);
 
     ros::Subscriber subCamera =
-        nh.subscribe<sensor_msgs::Image>("/cam02/image_raw", 100, imageHandler);
+        nh.subscribe<sensor_msgs::Image>("/cam04/image_raw", 100, imageHandler);
 
-    pub = nh.advertise<sensor_msgs::Image>("/projection", 1);
+    pubProjection = nh.advertise<sensor_msgs::Image>("/projection", 100);
+
+    pubCloudLane = nh.advertise<sensor_msgs::PointCloud2>("/lane_points", 100);
+
     std::thread projection_process{doProjection};
     ros::spin();
     return 0;
